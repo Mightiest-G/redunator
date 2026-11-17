@@ -2,8 +2,11 @@
 //
 // GOOGLE MAPS API KEY — THE ONLY place the key lives in this app.
 // ------------------------------------------------------------------
-// 1. Copy this file's value into a real key:
-//      const String googleMapsApiKey = 'AIza...';
+// 1. Paste your key as the value of googleMapsApiKey below (the
+//    `const String` declaration). Do NOT put an example assignment
+//    anywhere in this comment block — the Gradle build reads this
+//    file with a regex, and an example here used to be matched first,
+//    injecting a fake key into the manifest and blanking the map.
 //    Get a key in the Google Cloud console:
 //      Cloud Console -> APIs & Services -> Credentials -> Create Credentials
 //      -> API key, then restrict it (Android apps, package

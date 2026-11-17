@@ -24,10 +24,15 @@ android {
         // Google Maps API key: single source of truth is lib/config.dart
         // (const String googleMapsApiKey). Read it here so the Android
         // manifest gets the same value the Dart code checks.
+        // Anchored to the real `const String` declaration: the comment
+        // block above it used to contain an example assignment, and an
+        // unanchored regex matched that example first, injecting the
+        // literal placeholder 'AIza...' into the manifest — which made
+        // the map stay blank on device (2026-11-17).
         val configFile = rootProject.file("../lib/config.dart")
         var mapsApiKey = ""
         if (configFile.exists()) {
-            val match = Regex("""googleMapsApiKey\s*=\s*['"]([^'"]*)['"]""")
+            val match = Regex("""(?m)^const String googleMapsApiKey\s*=\s*['"]([^'"]*)['"]""")
                 .find(configFile.readText())
             if (match != null) mapsApiKey = match.groupValues[1]
         }
