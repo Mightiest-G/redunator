@@ -1,0 +1,56 @@
+name: Build Android APK
+
+# Builds the Redunator Flutter app and publishes the release APK as a
+# GitHub Release asset (plus an Actions artifact). The app talks to the
+# live Cloud Run backend (defaultBaseUrl in app/lib/config.dart).
+# Runs on every push that touches the app, or manually from the Actions tab.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish GitHub Release with the APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="apk-${{ github.run_number }}"
+          gh release create "$TAG" \
+            app/build/app/outputs/flutter-apk/app-release.apk \
+            --title "Redunator APK (build ${{ github.run_number }})" \
+            --notes "Release APK built from main (${{ github.sha }}). Points at the live Cloud Run backend: https://redunator-api-108691448805.us-central1.run.app"

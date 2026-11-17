@@ -199,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           controller: _baseUrlController,
           decoration: const InputDecoration(
             labelText: 'Backend base URL',
-            hintText: 'http://10.0.2.2:8000',
+            hintText: 'https://redunator-api-108691448805.us-central1.run.app',
             border: OutlineInputBorder(),
           ),
           onSubmitted: (v) async {
@@ -210,9 +210,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Default http://10.0.2.2:8000 reaches a backend on the host '
-          'machine from the Android emulator. For a physical device use '
-          'the host LAN IP or a deployed URL.',
+          'Default is the live Cloud Run backend. For local '
+          'development use http://10.0.2.2:8000 (emulator) or the host '
+          'LAN IP (physical device).',
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const SizedBox(height: 8),

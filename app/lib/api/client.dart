@@ -4,9 +4,8 @@
 //   GET /violation_trends, GET /live/risk, POST /user_report,
 //   GET /user_report/{id}, GET/POST /user_alerts, DELETE /user_alerts/{id},
 //   POST /user_feedback, GET/POST /user_settings, GET /health.
-// Base URL is configurable (default http://10.0.2.2:8000 — the Android
-// emulator's route to a backend running on the host). No mock data:
-// tests inject a mock http.Client, the shipped app always hits the
+// Base URL is configurable (default is the live Cloud Run service).
+// No mock data: tests inject a mock http.Client, the shipped app always hits the
 // real backend (or shows an offline/cached state).
 import 'dart:convert';
 
@@ -22,7 +21,7 @@ class RedunatorApiClient {
     this.apiKey,
   }) : _http = httpClient ?? http.Client();
 
-  /// Base URL without a trailing slash, e.g. http://10.0.2.2:8000.
+  /// Base URL without a trailing slash, e.g. the Cloud Run service URL.
   final String baseUrl;
   final http.Client _http;
 

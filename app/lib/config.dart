@@ -21,11 +21,13 @@
 // steps instead (see lib/widgets/missing_key_view.dart).
 const String googleMapsApiKey = 'AIzaSyCiCbbOvejHZgOREi9d4JX0X1DXbZ3co3Q';
 
-/// Default backend base URL for the Android emulator, which reaches
-/// the host machine's localhost as 10.0.2.2. Overridable in Settings.
-/// For a physical device use the host's LAN IP, e.g.
-/// http://192.168.1.10:8000, or a deployed backend URL.
-const String defaultBaseUrl = 'http://10.0.2.2:8000';
+/// Default backend base URL: the live Cloud Run service
+/// (https://redunator-api-108691448805.us-central1.run.app).
+/// Overridable in Settings; a saved Settings value wins over this.
+/// For local development use the emulator address
+/// http://10.0.2.2:8000, or a LAN IP for a physical device.
+const String defaultBaseUrl =
+    'https://redunator-api-108691448805.us-central1.run.app';
 
 /// Whether the key above is present. Used by the UI to decide between
 /// the real map and the missing-key explanation.
