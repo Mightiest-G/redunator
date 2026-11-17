@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "6dvr-xwnh",
+ "label": "edge_zero_2025H1",
+ "class": "zero",
+ "start": "2025-01-01T00:00:00",
+ "end": "2025-07-01T00:00:00",
+ "n": 198,
+ "seconds": 1.2,
+ "where": "trip_start_timestamp >= '2025-01-01T00:00:00' AND trip_start_timestamp < '2025-07-01T00:00:00' AND (trip_seconds = 0)"
+}

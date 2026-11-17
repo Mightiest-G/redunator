@@ -1,0 +1,177 @@
+[
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-01",
+  "start": "2023-01-01T00:00:00",
+  "end": "2023-02-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-02",
+  "start": "2023-02-01T00:00:00",
+  "end": "2023-03-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-03",
+  "start": "2023-03-01T00:00:00",
+  "end": "2023-04-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-04",
+  "start": "2023-04-01T00:00:00",
+  "end": "2023-05-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-05",
+  "start": "2023-05-01T00:00:00",
+  "end": "2023-06-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-06",
+  "start": "2023-06-01T00:00:00",
+  "end": "2023-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-07",
+  "start": "2023-07-01T00:00:00",
+  "end": "2023-08-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-08",
+  "start": "2023-08-01T00:00:00",
+  "end": "2023-09-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-09",
+  "start": "2023-09-01T00:00:00",
+  "end": "2023-10-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-10",
+  "start": "2023-10-01T00:00:00",
+  "end": "2023-11-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-11",
+  "start": "2023-11-01T00:00:00",
+  "end": "2023-12-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023-12",
+  "start": "2023-12-01T00:00:00",
+  "end": "2024-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-01",
+  "start": "2024-01-01T00:00:00",
+  "end": "2024-02-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-02",
+  "start": "2024-02-01T00:00:00",
+  "end": "2024-03-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-03a",
+  "start": "2024-03-01T00:00:00",
+  "end": "2024-03-16T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-03b",
+  "start": "2024-03-16T00:00:00",
+  "end": "2024-04-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-04",
+  "start": "2024-04-01T00:00:00",
+  "end": "2024-05-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-05",
+  "start": "2024-05-01T00:00:00",
+  "end": "2024-06-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-06",
+  "start": "2024-06-01T00:00:00",
+  "end": "2024-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-07",
+  "start": "2024-07-01T00:00:00",
+  "end": "2024-08-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-08",
+  "start": "2024-08-01T00:00:00",
+  "end": "2024-09-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-09",
+  "start": "2024-09-01T00:00:00",
+  "end": "2024-10-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-10",
+  "start": "2024-10-01T00:00:00",
+  "end": "2024-11-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-11",
+  "start": "2024-11-01T00:00:00",
+  "end": "2024-12-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024-12",
+  "start": "2024-12-01T00:00:00",
+  "end": "2025-01-01T00:00:00"
+ }
+]

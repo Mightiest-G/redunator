@@ -1,0 +1,20 @@
+{
+  "derived_from": "winning-model predictions on holdout 2026-08-01 -> 2026-10-29 (26,752 camera-days)",
+  "predicted_count_quantiles": {
+    "p50": 3.58,
+    "p75": 6.29,
+    "p90": 9.91,
+    "p95": 16.05,
+    "p99": 30.59,
+    "max": 127.24
+  },
+  "med_cut": 4,
+  "high_cut": 10,
+  "score_scale": 35,
+  "bands": {
+    "LOW": "predicted < 4 violations/day",
+    "MEDIUM": "4 <= predicted < 10 violations/day",
+    "HIGH": "predicted >= 10 violations/day"
+  },
+  "score": "risk_score = clip(predicted / 35, 0, 1)"
+}

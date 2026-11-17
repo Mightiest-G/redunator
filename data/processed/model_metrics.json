@@ -1,0 +1,25 @@
+{
+  "split": {
+    "train_end": "2026-07-31",
+    "test_start": "2026-08-01"
+  },
+  "metrics": {
+    "naive_baseline": {
+      "rmse": 4.799717347626734,
+      "mae": 2.944395422545578
+    },
+    "random_forest": {
+      "rmse": 3.306837019543589,
+      "mae": 2.1451720889686663
+    },
+    "xgboost": {
+      "rmse": 3.361325987970801,
+      "mae": 2.147685017648059
+    },
+    "random_forest_unbounded": {
+      "rmse": 3.3115960487556118,
+      "mae": 2.164092875423721
+    }
+  },
+  "note": "random_forest = shipped model (max_depth=12, 56 MB). random_forest_unbounded = first run (RMSE 3.3116, MAE 2.1641, 2.9 GB file); kept as redunator_brain_v1_rf_unbounded.joblib."
+}

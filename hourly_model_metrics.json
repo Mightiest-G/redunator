@@ -1,0 +1,131 @@
+{
+  "split": {
+    "train": "2025-01-01 -> 2026-02-28",
+    "test": "2026-03-01 -> 2026-04-30"
+  },
+  "target": "hourly crash counts within 200 m of each camera (PROXY)",
+  "features": [
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "is_weekend",
+    "speed_ratio",
+    "precip_mm",
+    "snowfall_cm",
+    "temp_c_10",
+    "wind_kmh_10",
+    "log_cam_rate",
+    "log_trail7_rate"
+  ],
+  "train_rows": 3673536,
+  "test_rows": 528504,
+  "baseline_profile_only": {
+    "mean_poisson_deviance": 0.08919544115328827,
+    "rmse": 0.10189973376053552,
+    "mae": 0.020163168697627555,
+    "pred_total": 5460.794811320755,
+    "actual_total": 5364.0,
+    "mean_pred": 0.010332551525287897,
+    "mean_actual": 0.01014940284274102
+  },
+  "models": {
+    "poisson_alpha_0.1": {
+      "mean_poisson_deviance": 0.09322654803425288,
+      "rmse": 0.1021328446729742,
+      "mae": 0.020275744695083604,
+      "pred_total": 5463.365691297688,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010337415972817022,
+      "mean_actual": 0.01014940284274102
+    },
+    "poisson_alpha_1.0": {
+      "mean_poisson_deviance": 0.09365822560776822,
+      "rmse": 0.10215486725744746,
+      "mae": 0.020210803813916198,
+      "pred_total": 5425.848870130256,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010266429147424155,
+      "mean_actual": 0.01014940284274102
+    },
+    "poisson_alpha_10.0": {
+      "mean_poisson_deviance": 0.09370951802334503,
+      "rmse": 0.10215744506008718,
+      "mae": 0.020268686712437436,
+      "pred_total": 5456.793149461038,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010324979847760922,
+      "mean_actual": 0.01014940284274102
+    },
+    "xgboost_poisson": {
+      "mean_poisson_deviance": 0.08792877562607161,
+      "rmse": 0.10184997236845086,
+      "mae": 0.020038168521146472,
+      "pred_total": 5399.33839451801,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010216267794601384,
+      "mean_actual": 0.01014940284274102
+    }
+  },
+  "winner": {
+    "model": "xgboost_poisson",
+    "ships": "model",
+    "reason": "xgboost_poisson beats the profile-only baseline on deviance (0.0879 vs 0.0892) with RMSE no worse (0.1018 vs 0.1019) and MAE 0.0200 vs 0.0202."
+  },
+  "feature_importances_gain": {
+    "hour_sin": 0.1143227145075798,
+    "hour_cos": 0.41536927223205566,
+    "dow_sin": 0.055232785642147064,
+    "dow_cos": 0.028023798018693924,
+    "is_weekend": 0.08219362050294876,
+    "speed_ratio": 0.029141584411263466,
+    "precip_mm": 0.025299053639173508,
+    "snowfall_cm": 0.039237622171640396,
+    "temp_c_10": 0.029503894969820976,
+    "wind_kmh_10": 0.024860745295882225,
+    "log_cam_rate": 0.12632782757282257,
+    "log_trail7_rate": 0.030487092211842537
+  },
+  "model_params": {
+    "objective": "count:poisson",
+    "base_score": null,
+    "booster": null,
+    "callbacks": null,
+    "colsample_bylevel": null,
+    "colsample_bynode": null,
+    "colsample_bytree": 0.8,
+    "device": null,
+    "early_stopping_rounds": null,
+    "enable_categorical": true,
+    "eval_metric": null,
+    "feature_types": null,
+    "feature_weights": null,
+    "gamma": null,
+    "grow_policy": null,
+    "importance_type": null,
+    "interaction_constraints": null,
+    "learning_rate": 0.05,
+    "max_bin": null,
+    "max_cat_threshold": null,
+    "max_cat_to_onehot": null,
+    "max_delta_step": null,
+    "max_depth": 6,
+    "max_leaves": null,
+    "min_child_weight": null,
+    "missing": NaN,
+    "monotone_constraints": null,
+    "multi_strategy": null,
+    "n_estimators": 300,
+    "n_jobs": 3,
+    "num_parallel_tree": null,
+    "random_state": 42,
+    "reg_alpha": null,
+    "reg_lambda": null,
+    "sampling_method": null,
+    "scale_pos_weight": null,
+    "subsample": 0.8,
+    "tree_method": "hist",
+    "validate_parameters": null,
+    "verbosity": null
+  }
+}

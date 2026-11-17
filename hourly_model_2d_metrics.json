@@ -1,0 +1,444 @@
+{
+  "A": {
+    "train": "2025-01-01 -> 2026-02-28",
+    "rate_end": "2026-02-28",
+    "features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "is_weekend",
+      "speed_ratio",
+      "precip_mm",
+      "snowfall_cm",
+      "temp_c_10",
+      "wind_kmh_10",
+      "log_cam_rate",
+      "log_trail7_rate",
+      "demand_share",
+      "trip_slowness"
+    ],
+    "train_rows": 3673536,
+    "feature_importances_gain": {
+      "hour_sin": 0.058522965759038925,
+      "hour_cos": 0.29937681555747986,
+      "dow_sin": 0.04487718641757965,
+      "dow_cos": 0.030073702335357666,
+      "is_weekend": 0.043998003005981445,
+      "speed_ratio": 0.024416683241724968,
+      "precip_mm": 0.02675859071314335,
+      "snowfall_cm": 0.04342738538980484,
+      "temp_c_10": 0.028237540274858475,
+      "wind_kmh_10": 0.025304563343524933,
+      "log_cam_rate": 0.15188546478748322,
+      "log_trail7_rate": 0.029239239171147346,
+      "demand_share": 0.14115309715270996,
+      "trip_slowness": 0.052728764712810516
+    },
+    "in_window_test_mar_apr": {
+      "mean_poisson_deviance": 0.08797374947470506,
+      "rmse": 0.10184858797274039,
+      "mae": 0.02007876000812531,
+      "pred_total": 5422.146920876228,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010259424566088863,
+      "mean_actual": 0.01014940284274102
+    },
+    "holdout": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09336260680301305,
+        "rmse": 0.10570967688389028,
+        "mae": 0.021414958642056992,
+        "pred_total": 8471.66820704221,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010864455995488626,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_x_preholdout_rate": {
+        "mean_poisson_deviance": 0.09334452922770786,
+        "rmse": 0.10570843065987726,
+        "mae": 0.02096907702667663,
+        "pred_total": 8110.294627535317,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013937025902,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  },
+  "B": {
+    "train": "2025-01-01 -> 2026-07-31",
+    "rate_end": "2026-07-31",
+    "features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "is_weekend",
+      "speed_ratio",
+      "precip_mm",
+      "snowfall_cm",
+      "temp_c_10",
+      "wind_kmh_10",
+      "log_cam_rate",
+      "log_trail7_rate",
+      "demand_share",
+      "trip_slowness"
+    ],
+    "train_rows": 4999128,
+    "feature_importances_gain": {
+      "hour_sin": 0.06085796281695366,
+      "hour_cos": 0.33227938413619995,
+      "dow_sin": 0.041353557258844376,
+      "dow_cos": 0.030593032017350197,
+      "is_weekend": 0.04445241391658783,
+      "speed_ratio": 0.020773684605956078,
+      "precip_mm": 0.022944025695323944,
+      "snowfall_cm": 0.036805495619773865,
+      "temp_c_10": 0.02464425005018711,
+      "wind_kmh_10": 0.020822465419769287,
+      "log_cam_rate": 0.1563858687877655,
+      "log_trail7_rate": 0.028438296169042587,
+      "demand_share": 0.13271057605743408,
+      "trip_slowness": 0.04693896323442459
+    },
+    "holdout": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09321563929131525,
+        "rmse": 0.10570158055674589,
+        "mae": 0.021360617323673156,
+        "pred_total": 8429.105949599703,
+        "actual_total": 8517.0,
+        "mean_pred": 0.01080987220375462,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_x_preholdout_rate": {
+        "mean_poisson_deviance": 0.09327010106170519,
+        "rmse": 0.10570639541193637,
+        "mae": 0.020969305392619594,
+        "pred_total": 8110.294626990713,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936327476,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  },
+  "A-demand-only": {
+    "train": "2025-01-01 -> 2026-02-28",
+    "rate_end": "2026-02-28",
+    "features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "is_weekend",
+      "speed_ratio",
+      "precip_mm",
+      "snowfall_cm",
+      "temp_c_10",
+      "wind_kmh_10",
+      "log_cam_rate",
+      "log_trail7_rate",
+      "demand_share"
+    ],
+    "train_rows": 3673536,
+    "feature_importances_gain": {
+      "hour_sin": 0.07383943349123001,
+      "hour_cos": 0.35135701298713684,
+      "dow_sin": 0.04636049643158913,
+      "dow_cos": 0.028163207694888115,
+      "is_weekend": 0.08391880244016647,
+      "speed_ratio": 0.025431999936699867,
+      "precip_mm": 0.02584257908165455,
+      "snowfall_cm": 0.04340881109237671,
+      "temp_c_10": 0.028251580893993378,
+      "wind_kmh_10": 0.025005001574754715,
+      "log_cam_rate": 0.13125143945217133,
+      "log_trail7_rate": 0.03575429320335388,
+      "demand_share": 0.10141530632972717
+    },
+    "in_window_test_mar_apr": {
+      "mean_poisson_deviance": 0.08792589568422267,
+      "rmse": 0.10184335161740028,
+      "mae": 0.020055289505749332,
+      "pred_total": 5409.486229872797,
+      "actual_total": 5364.0,
+      "mean_pred": 0.010235468851461477,
+      "mean_actual": 0.01014940284274102
+    },
+    "holdout": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.093328175957725,
+        "rmse": 0.10570853576773596,
+        "mae": 0.021444582875066225,
+        "pred_total": 8495.385168141685,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010894871714555358,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_x_preholdout_rate": {
+        "mean_poisson_deviance": 0.09332949181331485,
+        "rmse": 0.10570792908430593,
+        "mae": 0.020969094520712557,
+        "pred_total": 8110.294626373265,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013935535632,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  },
+  "A-slowness-only": {
+    "train": "2025-01-01 -> 2026-02-28",
+    "rate_end": "2026-02-28",
+    "features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "is_weekend",
+      "speed_ratio",
+      "precip_mm",
+      "snowfall_cm",
+      "temp_c_10",
+      "wind_kmh_10",
+      "log_cam_rate",
+      "log_trail7_rate",
+      "trip_slowness"
+    ],
+    "train_rows": 3673536,
+    "feature_importances_gain": {
+      "hour_sin": 0.08142634481191635,
+      "hour_cos": 0.4235146641731262,
+      "dow_sin": 0.04700767621397972,
+      "dow_cos": 0.026932911947369576,
+      "is_weekend": 0.07260441035032272,
+      "speed_ratio": 0.02203170210123062,
+      "precip_mm": 0.02433670312166214,
+      "snowfall_cm": 0.03911338001489639,
+      "temp_c_10": 0.026191672310233116,
+      "wind_kmh_10": 0.023707225918769836,
+      "log_cam_rate": 0.12523780763149261,
+      "log_trail7_rate": 0.032980091869831085,
+      "trip_slowness": 0.0549154095351696
+    },
+    "in_window_test_mar_apr": {
+      "mean_poisson_deviance": 0.08797583147188001,
+      "rmse": 0.10185268754680421,
+      "mae": 0.020070589820805545,
+      "pred_total": 5417.30820931046,
+      "actual_total": 5364.0,
+      "mean_pred": 0.01025026907896716,
+      "mean_actual": 0.01014940284274102
+    },
+    "holdout": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09339418948928535,
+        "rmse": 0.10571496791671868,
+        "mae": 0.0214293818699392,
+        "pred_total": 8483.185568526504,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010879226388281656,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_x_preholdout_rate": {
+        "mean_poisson_deviance": 0.09335219095468113,
+        "rmse": 0.10571205938218077,
+        "mae": 0.020969512598813977,
+        "pred_total": 8110.294629067961,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013938991434,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  },
+  "B12": {
+    "train": "2025-01-01 -> 2026-07-31",
+    "rate_end": "2026-07-31",
+    "features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "is_weekend",
+      "speed_ratio",
+      "precip_mm",
+      "snowfall_cm",
+      "temp_c_10",
+      "wind_kmh_10",
+      "log_cam_rate",
+      "log_trail7_rate"
+    ],
+    "train_rows": 4999128,
+    "feature_importances_gain": {
+      "hour_sin": 0.11929113417863846,
+      "hour_cos": 0.4244755506515503,
+      "dow_sin": 0.05598273128271103,
+      "dow_cos": 0.030452784150838852,
+      "is_weekend": 0.07243727147579193,
+      "speed_ratio": 0.027588821947574615,
+      "precip_mm": 0.02312677539885044,
+      "snowfall_cm": 0.03363114222884178,
+      "temp_c_10": 0.026466650888323784,
+      "wind_kmh_10": 0.02123728021979332,
+      "log_cam_rate": 0.13459894061088562,
+      "log_trail7_rate": 0.03071099892258644
+    },
+    "holdout": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09320346080917317,
+        "rmse": 0.10569900891418506,
+        "mae": 0.021363141513715364,
+        "pred_total": 8431.64773788408,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010813131909669744,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_x_preholdout_rate": {
+        "mean_poisson_deviance": 0.09325971943674431,
+        "rmse": 0.10570549988408046,
+        "mae": 0.020968926057770836,
+        "pred_total": 8110.294628328644,
+        "actual_total": 8517.0,
+        "mean_pred": 0.0104010139380433,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  },
+  "B12_blends": {
+    "B12": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09320346080917317,
+        "rmse": 0.10569900891418506,
+        "mae": 0.021363141513715364,
+        "pred_total": 8431.64773788408,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010813131909669744,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape": {
+        "mean_poisson_deviance": 0.09325971943674431,
+        "rmse": 0.10570549988408046,
+        "mae": 0.020968926057770836,
+        "pred_total": 8110.294628328644,
+        "actual_total": 8517.0,
+        "mean_pred": 0.0104010139380433,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness": {
+        "mean_poisson_deviance": 0.09339233966674969,
+        "rmse": 0.10571213779341282,
+        "mae": 0.020950551803009344,
+        "pred_total": 8110.294627383016,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830584,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness_half": {
+        "mean_poisson_deviance": 0.09325831976942561,
+        "rmse": 0.10570451374844668,
+        "mae": 0.020959490544650287,
+        "pred_total": 8110.294627383016,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830584,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    },
+    "B": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09321563929131525,
+        "rmse": 0.10570158055674589,
+        "mae": 0.021360617323673156,
+        "pred_total": 8429.105949599703,
+        "actual_total": 8517.0,
+        "mean_pred": 0.01080987220375462,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape": {
+        "mean_poisson_deviance": 0.09327010106170519,
+        "rmse": 0.10570639541193637,
+        "mae": 0.020969305392619594,
+        "pred_total": 8110.294626990713,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936327476,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness": {
+        "mean_poisson_deviance": 0.09345437384110447,
+        "rmse": 0.10571394553739351,
+        "mae": 0.02095133410088815,
+        "pred_total": 8110.294627383016,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830584,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness_half": {
+        "mean_poisson_deviance": 0.0932970276575182,
+        "rmse": 0.10570601384840489,
+        "mae": 0.02096009686805691,
+        "pred_total": 8110.294627383016,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830584,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    },
+    "shipped": {
+      "raw_counts": {
+        "mean_poisson_deviance": 0.09334310732367943,
+        "rmse": 0.10571040011227896,
+        "mae": 0.021422510829557814,
+        "pred_total": 8477.810032352689,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010872332554058542,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape": {
+        "mean_poisson_deviance": 0.09333271158249357,
+        "rmse": 0.10570888208404296,
+        "mae": 0.020969214314792973,
+        "pred_total": 8110.294624396225,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013933000186,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness": {
+        "mean_poisson_deviance": 0.0934783676970667,
+        "rmse": 0.10571490296605025,
+        "mae": 0.020950832861793313,
+        "pred_total": 8110.294627383016,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830584,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      },
+      "shape_plus_slowness_half": {
+        "mean_poisson_deviance": 0.09333812618679252,
+        "rmse": 0.10570767795932497,
+        "mae": 0.0209597713988748,
+        "pred_total": 8110.294627383015,
+        "actual_total": 8517.0,
+        "mean_pred": 0.010401013936830582,
+        "mean_actual": 0.010922591566635888,
+        "pred_peak_hour": 16
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+ "data/hourly/processed/camera_segment_map.csv": {
+  "rows": 365
+ },
+ "data/hourly/processed/congestion_hourly.parquet": {
+  "rows": 1947880,
+  "timestamp_min": "2025-01-01 00:00:00",
+  "timestamp_max": "2026-04-30 01:00:00",
+  "day_min": "2025-01-01 00:00:00",
+  "day_max": "2026-04-30 00:00:00"
+ },
+ "data/hourly/processed/congestion_region_hourly.parquet": {
+  "rows": 323594,
+  "timestamp_min": "2025-01-01 00:00:00",
+  "timestamp_max": "2026-04-30 01:00:00",
+  "day_min": "2025-01-01 00:00:00",
+  "day_max": "2026-04-30 00:00:00"
+ },
+ "data/hourly/processed/crashes_hourly_citywide.parquet": {
+  "rows": 16008,
+  "timestamp_min": "2025-01-01 00:00:00",
+  "timestamp_max": "2026-10-29 23:00:00"
+ },
+ "data/hourly/processed/crashes_hourly_per_camera.parquet": {
+  "rows": 59158,
+  "timestamp_min": "2025-01-01 00:00:00",
+  "timestamp_max": "2026-10-29 23:00:00"
+ },
+ "data/hourly/processed/weather_hourly.parquet": {
+  "rows": 16008,
+  "timestamp_min": "2025-01-01 00:00:00",
+  "timestamp_max": "2026-10-29 23:00:00"
+ },
+ "data/hourly/raw/congestion_regions_hourly_raw.csv": {
+  "rows": 323594
+ },
+ "data/hourly/raw/congestion_segments_hourly_raw.csv": {
+  "rows": 1947880
+ },
+ "data/hourly/raw/crashes_20250101_20261029.csv": {
+  "rows": 202151
+ },
+ "data/hourly/raw/segments_snapshot.csv": {
+  "rows": 1257
+ },
+ "data/hourly/raw/weather_chicago_hourly.csv": {
+  "rows": 16008
+ }
+}

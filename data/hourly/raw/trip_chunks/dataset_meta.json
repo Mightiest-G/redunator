@@ -1,0 +1,40 @@
+{
+ "wrvz-psew": {
+  "total": 211670894,
+  "min_trip_start": "2013-01-01T00:00:00.000",
+  "max_trip_start": "2023-12-31T23:45:00.000",
+  "null_pickup_area": 24179249,
+  "null_share": 0.1142303910711503
+ },
+ "ajtu-isnz": {
+  "total": 19277823,
+  "min_trip_start": "2024-01-01T00:00:00.000",
+  "max_trip_start": "2026-11-01T00:00:00.000",
+  "null_pickup_area": 520682,
+  "null_share": 0.027009377563016322
+ },
+ "m6dm-c72p": {
+  "total": 299602996,
+  "min_trip_start": "2018-11-01T00:00:00.000",
+  "max_trip_start": "2022-12-31T23:45:00.000",
+  "null_pickup_area": 22047057,
+  "null_share": 0.07358757186793953
+ },
+ "n26f-ihde": {
+  "total": 174369516,
+  "min_trip_start": "2023-01-01T00:00:00.000",
+  "max_trip_start": "2024-12-31T23:45:00.000",
+  "null_pickup_area": 15652862,
+  "null_share": 0.08976834001190896
+ },
+ "6dvr-xwnh": {
+  "total": 161578076,
+  "min_trip_start": "2025-01-01T00:00:00.000",
+  "max_trip_start": "2026-09-30T23:45:00.000",
+  "null_pickup_area": 15718890,
+  "null_share": 0.09728355720735281
+ },
+ "igwz-8jzy": {
+  "total": 77
+ }
+}

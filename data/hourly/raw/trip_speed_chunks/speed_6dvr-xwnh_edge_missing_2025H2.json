@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "6dvr-xwnh",
+ "label": "edge_missing_2025H2",
+ "class": "missing",
+ "start": "2025-07-01T00:00:00",
+ "end": "2026-01-01T00:00:00",
+ "n": 3507,
+ "seconds": 1.4,
+ "where": "trip_start_timestamp >= '2025-07-01T00:00:00' AND trip_start_timestamp < '2026-01-01T00:00:00' AND (trip_seconds IS NULL OR trip_miles IS NULL)"
+}

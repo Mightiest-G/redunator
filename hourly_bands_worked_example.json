@@ -1,0 +1,208 @@
+{
+  "camera_id": "1413",
+  "date": "2026-10-15",
+  "daily_prediction": 53.009553452442816,
+  "method": "model",
+  "hourly_sum": 53.0096,
+  "peak_hour": 15,
+  "peak_value": 4.82,
+  "bands_hourly": {
+    "LOW": 0.1,
+    "MEDIUM": "0.1-<0.5",
+    "HIGH": ">=0.5"
+  },
+  "bands_daily": {
+    "LOW": 4,
+    "MEDIUM": "4-<10",
+    "HIGH": ">=10"
+  },
+  "hours": [
+    {
+      "hour": 0,
+      "predicted": 0.68,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 1,
+      "predicted": 0.52,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 2,
+      "predicted": 0.38,
+      "band_hourly": "MEDIUM",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 3,
+      "predicted": 0.28,
+      "band_hourly": "MEDIUM",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 4,
+      "predicted": 0.31,
+      "band_hourly": "MEDIUM",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 5,
+      "predicted": 0.53,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 6,
+      "predicted": 0.83,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 7,
+      "predicted": 2.69,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 8,
+      "predicted": 3.09,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 9,
+      "predicted": 2.76,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 10,
+      "predicted": 2.65,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 11,
+      "predicted": 2.69,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 12,
+      "predicted": 3.34,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 13,
+      "predicted": 3.18,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 14,
+      "predicted": 3.6,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 15,
+      "predicted": 4.82,
+      "band_hourly": "HIGH",
+      "band_daily": "MEDIUM",
+      "changed": true
+    },
+    {
+      "hour": 16,
+      "predicted": 4.54,
+      "band_hourly": "HIGH",
+      "band_daily": "MEDIUM",
+      "changed": true
+    },
+    {
+      "hour": 17,
+      "predicted": 4.53,
+      "band_hourly": "HIGH",
+      "band_daily": "MEDIUM",
+      "changed": true
+    },
+    {
+      "hour": 18,
+      "predicted": 2.51,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 19,
+      "predicted": 2.34,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 20,
+      "predicted": 2.29,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 21,
+      "predicted": 1.84,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 22,
+      "predicted": 1.47,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    },
+    {
+      "hour": 23,
+      "predicted": 1.14,
+      "band_hourly": "HIGH",
+      "band_daily": "LOW",
+      "changed": true
+    }
+  ],
+  "n_changed": 24,
+  "n_up": 24,
+  "holdout_band_changes": {
+    "total_changed": 372364,
+    "total_hours": 642048,
+    "up": 372364,
+    "down": 0,
+    "transitions": {
+      "LOW->LOW": 269684,
+      "LOW->MEDIUM": 312207,
+      "LOW->HIGH": 59220,
+      "MEDIUM->LOW": 0,
+      "MEDIUM->MEDIUM": 0,
+      "MEDIUM->HIGH": 937,
+      "HIGH->LOW": 0,
+      "HIGH->MEDIUM": 0,
+      "HIGH->HIGH": 0
+    }
+  }
+}

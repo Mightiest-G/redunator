@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "ajtu-isnz",
+ "label": "edge_zero",
+ "class": "zero",
+ "start": "2024-01-01T00:00:00",
+ "end": "2026-08-01T00:00:00",
+ "n": 232083,
+ "seconds": 70.7,
+ "where": "trip_start_timestamp >= '2024-01-01T00:00:00' AND trip_start_timestamp < '2026-08-01T00:00:00' AND (trip_seconds = 0)"
+}

@@ -1,0 +1,228 @@
+[
+ {
+  "kind": "holiday",
+  "did": "n26f-ihde",
+  "label": "holiday",
+  "start": "2023-01-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "holidays": "/home/hatch/workspace/redunator/data/hourly/speed_work/holidays_n26f-ihde.json"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2023H1",
+  "start": "2023-01-01T00:00:00",
+  "end": "2023-07-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2023H1",
+  "start": "2023-01-01T00:00:00",
+  "end": "2023-07-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2023H2",
+  "start": "2023-07-01T00:00:00",
+  "end": "2024-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2023H2",
+  "start": "2023-07-01T00:00:00",
+  "end": "2024-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2024H1",
+  "start": "2024-01-01T00:00:00",
+  "end": "2024-07-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2024H1",
+  "start": "2024-01-01T00:00:00",
+  "end": "2024-07-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2024H2",
+  "start": "2024-07-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2024H2",
+  "start": "2024-07-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-01",
+  "start": "2025-01-01T00:00:00",
+  "end": "2025-02-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-02",
+  "start": "2025-02-01T00:00:00",
+  "end": "2025-03-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-03",
+  "start": "2025-03-01T00:00:00",
+  "end": "2025-04-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-04",
+  "start": "2025-04-01T00:00:00",
+  "end": "2025-05-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-05",
+  "start": "2025-05-01T00:00:00",
+  "end": "2025-06-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-06",
+  "start": "2025-06-01T00:00:00",
+  "end": "2025-07-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-07",
+  "start": "2025-07-01T00:00:00",
+  "end": "2025-08-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-08",
+  "start": "2025-08-01T00:00:00",
+  "end": "2025-09-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-09",
+  "start": "2025-09-01T00:00:00",
+  "end": "2025-10-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-10",
+  "start": "2025-10-01T00:00:00",
+  "end": "2025-11-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-11a",
+  "start": "2025-11-01T00:00:00",
+  "end": "2025-11-16T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-11b",
+  "start": "2025-11-16T00:00:00",
+  "end": "2025-12-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2025-12",
+  "start": "2025-12-01T00:00:00",
+  "end": "2026-01-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-01",
+  "start": "2026-01-01T00:00:00",
+  "end": "2026-02-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-02",
+  "start": "2026-02-01T00:00:00",
+  "end": "2026-03-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-03",
+  "start": "2026-03-01T00:00:00",
+  "end": "2026-04-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-04",
+  "start": "2026-04-01T00:00:00",
+  "end": "2026-05-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-05",
+  "start": "2026-05-01T00:00:00",
+  "end": "2026-06-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-06",
+  "start": "2026-06-01T00:00:00",
+  "end": "2026-07-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-07",
+  "start": "2026-07-01T00:00:00",
+  "end": "2026-08-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-08",
+  "start": "2026-08-01T00:00:00",
+  "end": "2026-09-01T00:00:00"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_2026-09",
+  "start": "2026-09-01T00:00:00",
+  "end": "2026-10-01T00:00:00"
+ }
+]

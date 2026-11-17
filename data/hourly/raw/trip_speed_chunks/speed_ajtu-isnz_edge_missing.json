@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "ajtu-isnz",
+ "label": "edge_missing",
+ "class": "missing",
+ "start": "2024-01-01T00:00:00",
+ "end": "2026-08-01T00:00:00",
+ "n": 3481,
+ "seconds": 3.7,
+ "where": "trip_start_timestamp >= '2024-01-01T00:00:00' AND trip_start_timestamp < '2026-08-01T00:00:00' AND (trip_seconds IS NULL OR trip_miles IS NULL)"
+}

@@ -1,0 +1,40 @@
+# .dockerignore — repo root (Docker build context for backend/Dockerfile).
+# Everything listed here is NEVER read by the serving path, verified
+# 2026-11-16 (Worker C): the backend at runtime reads only
+#   redunator_brain_v1.joblib / .onnx / .json (via live_model.json),
+#   hourly_model.joblib, data/processed/red_light_features.parquet +
+#   camera_profiles.csv, data/hourly/processed/*.parquet + *.csv, and
+#   data/hourly/raw/crashes_20250101_20261029.csv (for /health's crash
+#   date only — the endpoint degrades to null without it).
+# Excluding the rest keeps the image ~200 MB of app files instead of
+# the full 3.3 GB working tree.
+
+# Reference-only models (never served)
+redunator_brain_v1_rf_unbounded.joblib
+redunator_brain_v1_xgboost.joblib
+redunator_brain_v1_xgboost.onnx
+hourly_model_2d_*.joblib
+hourly_model_v2b.joblib
+
+# Raw ingest data (build-time inputs; the processed tables ship instead)
+data/raw/
+data/hourly/raw/trip_chunks/
+data/hourly/raw/trip_speed_chunks/
+data/hourly/raw/congestion_*.csv
+data/hourly/raw/segments_snapshot.csv
+data/hourly/raw/community_areas.geojson
+data/hourly/raw/weather_chicago_hourly.csv
+data/hourly/speed_work/
+
+# Speed-join experiment table (not read at runtime)
+data/processed/red_light_features_speed.parquet
+
+# Working state / caches / local env
+retrain_runs/
+work/
+__pycache__/
+*.pyc
+.tmp/
+.env
+redunator-venv/
+.git/

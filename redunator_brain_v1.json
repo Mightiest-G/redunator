@@ -1,0 +1,58 @@
+{
+  "model": "random_forest (max_depth=12)",
+  "model_file": "redunator_brain_v1.joblib",
+  "features": [
+    "dow",
+    "month",
+    "year",
+    "season",
+    "day_of_year",
+    "is_weekend",
+    "is_holiday",
+    "days_since_first",
+    "lag_1d",
+    "roll_mean_7d",
+    "roll_mean_30d",
+    "cam_mean_pre_test",
+    "cam_std_pre_test",
+    "cam_n_days_pre_test",
+    "latitude",
+    "longitude",
+    "cam_code"
+  ],
+  "target": "violations",
+  "train_start": "2014-07-01",
+  "train_end": "2026-07-31",
+  "test_start": "2026-08-01",
+  "test_end": "2026-10-29",
+  "train_rows": 1331343,
+  "test_rows": 26752,
+  "train_cameras": 365,
+  "test_cameras": 300,
+  "metrics": {
+    "naive_baseline": {
+      "rmse": 4.799717347626734,
+      "mae": 2.944395422545578
+    },
+    "random_forest": {
+      "rmse": 3.306837019543589,
+      "mae": 2.1451720889686663
+    },
+    "xgboost": {
+      "rmse": 3.361325987970801,
+      "mae": 2.147685017648059
+    },
+    "random_forest_unbounded": {
+      "rmse": 3.3115960487556118,
+      "mae": 2.164092875423721
+    }
+  },
+  "notes": {
+    "cam_code": "integer code for camera_id, fit on sorted train cameras; all 300 test cameras have train history",
+    "lag_fill": "lag_1d/roll_mean_7d/roll_mean_30d NaN (segment starts) filled with 0",
+    "latlon_fill": "NaN lat/lon imputed with train medians (41.9097, -87.6998)",
+    "clip": "predictions clipped at 0 (no negative violations)",
+    "depth_limit": "First run used unbounded trees: RMSE 3.3116, MAE 2.1641, but the file was 2.9 GB (150 trees x ~266k nodes). A max_depth=12 retrain scored slightly BETTER on the same holdout (RMSE 3.3068, MAE 2.1452) at 56 MB, so it is the shipped v1. The unbounded model is kept as redunator_brain_v1_rf_unbounded.joblib.",
+    "xgboost_compact": "XGBoost retrained identically and saved as redunator_brain_v1_xgboost.joblib (8.3 MB, RMSE 3.3613, MAE 2.1477)."
+  }
+}

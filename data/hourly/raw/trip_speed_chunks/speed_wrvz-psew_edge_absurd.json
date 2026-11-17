@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "wrvz-psew",
+ "label": "edge_absurd",
+ "class": "absurd",
+ "start": "2023-01-01T00:00:00",
+ "end": "2024-01-01T00:00:00",
+ "n": 562426,
+ "seconds": 24.3,
+ "where": "trip_start_timestamp >= '2023-01-01T00:00:00' AND trip_start_timestamp < '2024-01-01T00:00:00' AND (trip_seconds > 0 AND trip_miles IS NOT NULL AND (trip_miles <= 0 OR trip_miles * 3600 / trip_seconds > 80))"
+}

@@ -1,0 +1,41 @@
+{
+  "derived_from": "shipped DEFAULT hourly output (predict_hourly, model path, demand OFF) on the Phase 2 holdout 2026-08-01 -> 2026-10-29 (26,752 camera-days x 24 h = 642,048 camera-hours); the 4 coordinate-less cameras use the shipped profile path (profile + weather + slowness) exactly as predict_hourly does",
+  "method": "same rule as risk.py (LOW/MEDIUM = round(p50), MEDIUM/HIGH = round(p90)), rounded to 0.1 violations/hour because hourly counts are ~24x smaller than daily counts; score scale = p99 rounded up to nearest 0.5",
+  "hourly_count_quantiles": {
+    "p50": 0.1262,
+    "p75": 0.2664,
+    "p90": 0.4822,
+    "p95": 0.7103,
+    "p99": 1.5705,
+    "max": 7.5992,
+    "mean": 0.2249
+  },
+  "med_cut": 0.1,
+  "high_cut": 0.5,
+  "score_scale": 2.0,
+  "bands": {
+    "LOW": "predicted < 0.1 violations/hour (ESTIMATE)",
+    "MEDIUM": "0.1 <= predicted < 0.5 violations/hour (ESTIMATE)",
+    "HIGH": "predicted >= 0.5 violations/hour (ESTIMATE)"
+  },
+  "score": "hourly risk_score = clip(predicted / 2.0, 0, 1) (NOT wired into hourly_risk.py yet \u2014 see findings doc)",
+  "band_shares_holdout": {
+    "LOW": 0.42,
+    "MEDIUM": 0.4863,
+    "HIGH": 0.0937
+  },
+  "sensitivity_quantiles": {
+    "model_path_only_p50_p90_p99": [
+      0.1262,
+      0.4822,
+      1.5705
+    ],
+    "profile_path_only_p50_p90_p99": [
+      0.1176,
+      0.5115,
+      1.6927
+    ]
+  },
+  "fallback_cameras_profile_path": [],
+  "script": "derive_hourly_bands.py"
+}

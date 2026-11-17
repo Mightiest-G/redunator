@@ -1,0 +1,67 @@
+{
+ "tnp|m6dm-c72p|2019-08a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-08a",
+  "rows": 27994,
+  "trips": 4610305,
+  "null_area_trips": 296859,
+  "seconds": 93.6,
+  "pages": 1,
+  "min_day": "2019-08-01",
+  "max_day": "2019-08-15",
+  "where": "trip_start_timestamp >= '2019-08-01T00:00:00' AND trip_start_timestamp < '2019-08-16T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-08b": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-08b",
+  "rows": 29863,
+  "trips": 4796834,
+  "null_area_trips": 313552,
+  "seconds": 115.3,
+  "pages": 1,
+  "min_day": "2019-08-16",
+  "max_day": "2019-08-31",
+  "where": "trip_start_timestamp >= '2019-08-16T00:00:00' AND trip_start_timestamp < '2019-09-01T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-09a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-09a",
+  "rows": 27969,
+  "trips": 4397822,
+  "null_area_trips": 286584,
+  "seconds": 16.5,
+  "pages": 1,
+  "min_day": "2019-09-01",
+  "max_day": "2019-09-15",
+  "where": "trip_start_timestamp >= '2019-09-01T00:00:00' AND trip_start_timestamp < '2019-09-16T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-09b": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-09b",
+  "rows": 27986,
+  "trips": 4518580,
+  "null_area_trips": 307699,
+  "seconds": 142.2,
+  "pages": 1,
+  "min_day": "2019-09-16",
+  "max_day": "2019-09-30",
+  "where": "trip_start_timestamp >= '2019-09-16T00:00:00' AND trip_start_timestamp < '2019-10-01T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-10a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-10a",
+  "rows": 27982,
+  "trips": 4409350,
+  "null_area_trips": 302446,
+  "seconds": 142.6,
+  "pages": 1,
+  "min_day": "2019-10-01",
+  "max_day": "2019-10-15",
+  "where": "trip_start_timestamp >= '2019-10-01T00:00:00' AND trip_start_timestamp < '2019-10-16T00:00:00'"
+ }
+}

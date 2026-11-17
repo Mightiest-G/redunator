@@ -1,0 +1,652 @@
+{
+  "holdout": {
+    "start": "2026-08-01",
+    "end": "2026-10-29",
+    "days": 90,
+    "cameras": 361,
+    "camera_hours": 779760,
+    "observed_crashes_attributed": 8517.0,
+    "nonzero_camera_hours": 8345,
+    "note": "Profiles rebuilt on pre-holdout crashes only (2025-01-01->2026-07-31); congestion absent (feed dead 2026-04-30); target = hourly crash counts within 200 m (PROXY)."
+  },
+  "preholdout_profiles": {
+    "n_crashes_per_camera_min": 24,
+    "n_crashes_per_camera_median": 136,
+    "n_crashes_per_camera_max": 455,
+    "thin_n_lt_50": 6,
+    "shipped_vs_preholdout_mean_abs_weight_diff": 0.00324062851057867,
+    "shipped_vs_preholdout_max_abs_weight_diff": 0.04889099811778097
+  },
+  "weather_multipliers_holdout": {
+    "min": 1.0,
+    "max": 1.15,
+    "mean": 1.0222946296296296,
+    "hours_above_1": 438,
+    "hours_total": 2160
+  },
+  "variants": {
+    "flat_uniform": {
+      "mean_poisson_deviance": 0.09738656062127991,
+      "rmse": 0.10593546863582329,
+      "mae": 0.021057731172020103,
+      "pred_total": 8110.294627383015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830582,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": NaN,
+      "share_spearman_rho": NaN,
+      "pred_peak_hour": 0,
+      "pred_peak_share": 0.041666666666666664,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "citywide_shape": {
+      "mean_poisson_deviance": 0.09399583377493942,
+      "rmse": 0.10574172391578672,
+      "mae": 0.02098606222588839,
+      "pred_total": 8110.294627383015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830582,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.98580235040749,
+      "share_spearman_rho": 0.9826086956521738,
+      "pred_peak_hour": 15,
+      "pred_peak_share": 0.07986317148940945,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "profile_only_preholdout": {
+      "mean_poisson_deviance": 0.09454932634961201,
+      "rmse": 0.10576377689351535,
+      "mae": 0.020981995984536463,
+      "pred_total": 8110.294627383015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830582,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.991184582785504,
+      "share_spearman_rho": 0.9860869565217389,
+      "pred_peak_hour": 15,
+      "pred_peak_share": 0.07697612382599163,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "profile_plus_weather": {
+      "mean_poisson_deviance": 0.09456069865673543,
+      "rmse": 0.1057646002309748,
+      "mae": 0.020981754947589207,
+      "pred_total": 8110.294627383015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830582,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9905955854459361,
+      "share_spearman_rho": 0.9860869565217389,
+      "pred_peak_hour": 15,
+      "pred_peak_share": 0.07740615405086729,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "xgboost_raw_counts": {
+      "mean_poisson_deviance": 0.09334237333814034,
+      "rmse": 0.105710525720565,
+      "mae": 0.02145486329308572,
+      "pred_total": 8503.852104575606,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010905730102307897,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9876928263629142,
+      "share_spearman_rho": 0.9843478260869565,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.0801634078987428,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "xgboost_shape_x_preholdout_rate": {
+      "mean_poisson_deviance": 0.09333512833917688,
+      "rmse": 0.10570910915175703,
+      "mae": 0.02096926118516459,
+      "pred_total": 8110.294625750015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013934736348,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9875441828822192,
+      "share_spearman_rho": 0.9843478260869565,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.07989672683244088,
+      "obs_peak_share": 0.08665022895385699
+    }
+  },
+  "per_hour_calibration": {
+    "profile_plus_weather": [
+      {
+        "hour": 0,
+        "observed_crashes": 169.0,
+        "observed_share": 0.01984266760596454,
+        "predicted_share": 0.021327982344214718,
+        "pred_over_obs_ratio": 1.074854589501046
+      },
+      {
+        "hour": 1,
+        "observed_crashes": 129.0,
+        "observed_share": 0.01514617823177175,
+        "predicted_share": 0.018887013940017922,
+        "pred_over_obs_ratio": 1.2469821529235088
+      },
+      {
+        "hour": 2,
+        "observed_crashes": 98.0,
+        "observed_share": 0.011506398966772337,
+        "predicted_share": 0.01787417994952719,
+        "pred_over_obs_ratio": 1.5534121492869704
+      },
+      {
+        "hour": 3,
+        "observed_crashes": 111.0,
+        "observed_share": 0.013032758013384995,
+        "predicted_share": 0.013842335873271525,
+        "pred_over_obs_ratio": 1.0621186903842665
+      },
+      {
+        "hour": 4,
+        "observed_crashes": 81.0,
+        "observed_share": 0.009510390982740402,
+        "predicted_share": 0.012854210175577854,
+        "pred_over_obs_ratio": 1.3515963958690935
+      },
+      {
+        "hour": 5,
+        "observed_crashes": 132.0,
+        "observed_share": 0.01549841493483621,
+        "predicted_share": 0.014945334466347424,
+        "pred_over_obs_ratio": 0.9643137397718258
+      },
+      {
+        "hour": 6,
+        "observed_crashes": 174.0,
+        "observed_share": 0.020429728777738642,
+        "predicted_share": 0.02188079615176932,
+        "pred_over_obs_ratio": 1.0710272461185018
+      },
+      {
+        "hour": 7,
+        "observed_crashes": 386.0,
+        "observed_share": 0.045321122460960435,
+        "predicted_share": 0.043018402634472146,
+        "pred_over_obs_ratio": 0.9491910239321224
+      },
+      {
+        "hour": 8,
+        "observed_crashes": 412.0,
+        "observed_share": 0.04837384055418575,
+        "predicted_share": 0.05244470784222743,
+        "pred_over_obs_ratio": 1.0841543123598325
+      },
+      {
+        "hour": 9,
+        "observed_crashes": 361.0,
+        "observed_share": 0.04238581660208994,
+        "predicted_share": 0.04442581934949343,
+        "pred_over_obs_ratio": 1.0481293722981595
+      },
+      {
+        "hour": 10,
+        "observed_crashes": 348.0,
+        "observed_share": 0.040859457555477284,
+        "predicted_share": 0.04446654307164837,
+        "pred_over_obs_ratio": 1.088280308451808
+      },
+      {
+        "hour": 11,
+        "observed_crashes": 449.0,
+        "observed_share": 0.05271809322531408,
+        "predicted_share": 0.04881433920066826,
+        "pred_over_obs_ratio": 0.9259503941471972
+      },
+      {
+        "hour": 12,
+        "observed_crashes": 483.0,
+        "observed_share": 0.05671010919337795,
+        "predicted_share": 0.05586579000882158,
+        "pred_over_obs_ratio": 0.9851116635717048
+      },
+      {
+        "hour": 13,
+        "observed_crashes": 491.0,
+        "observed_share": 0.05764940706821651,
+        "predicted_share": 0.060244305619658954,
+        "pred_over_obs_ratio": 1.0450117127548582
+      },
+      {
+        "hour": 14,
+        "observed_crashes": 596.0,
+        "observed_share": 0.06997769167547259,
+        "predicted_share": 0.06638372410349111,
+        "pred_over_obs_ratio": 0.9486412385728754
+      },
+      {
+        "hour": 15,
+        "observed_crashes": 738.0,
+        "observed_share": 0.08665022895385699,
+        "predicted_share": 0.07740615405086729,
+        "pred_over_obs_ratio": 0.8933173632130579
+      },
+      {
+        "hour": 16,
+        "observed_crashes": 678.0,
+        "observed_share": 0.07960549489256781,
+        "predicted_share": 0.07695423992678267,
+        "pred_over_obs_ratio": 0.9666950758944071
+      },
+      {
+        "hour": 17,
+        "observed_crashes": 688.0,
+        "observed_share": 0.080779617236116,
+        "predicted_share": 0.07443564493437145,
+        "pred_over_obs_ratio": 0.9214656800959908
+      },
+      {
+        "hour": 18,
+        "observed_crashes": 582.0,
+        "observed_share": 0.0683339203945051,
+        "predicted_share": 0.0592181591431744,
+        "pred_over_obs_ratio": 0.8665997618941863
+      },
+      {
+        "hour": 19,
+        "observed_crashes": 371.0,
+        "observed_share": 0.04355993894563814,
+        "predicted_share": 0.047017659699517905,
+        "pred_over_obs_ratio": 1.0793784573067224
+      },
+      {
+        "hour": 20,
+        "observed_crashes": 321.0,
+        "observed_share": 0.03768932722789715,
+        "predicted_share": 0.0379531389303199,
+        "pred_over_obs_ratio": 1.006999639468955
+      },
+      {
+        "hour": 21,
+        "observed_crashes": 293.0,
+        "observed_share": 0.03440178466596219,
+        "predicted_share": 0.03429198471837692,
+        "pred_over_obs_ratio": 0.9968083066430588
+      },
+      {
+        "hour": 22,
+        "observed_crashes": 212.0,
+        "observed_share": 0.024891393683221793,
+        "predicted_share": 0.030111024206766215,
+        "pred_over_obs_ratio": 1.2096961941935276
+      },
+      {
+        "hour": 23,
+        "observed_crashes": 214.0,
+        "observed_share": 0.02512621815193143,
+        "predicted_share": 0.025336509658615936,
+        "pred_over_obs_ratio": 1.008369405431925
+      }
+    ],
+    "xgboost_raw_counts": [
+      {
+        "hour": 0,
+        "observed_crashes": 169.0,
+        "observed_share": 0.01984266760596454,
+        "predicted_share": 0.019191479548685098,
+        "pred_over_obs_ratio": 0.9671824338233787
+      },
+      {
+        "hour": 1,
+        "observed_crashes": 129.0,
+        "observed_share": 0.01514617823177175,
+        "predicted_share": 0.015822281205292027,
+        "pred_over_obs_ratio": 1.0446385195773038
+      },
+      {
+        "hour": 2,
+        "observed_crashes": 98.0,
+        "observed_share": 0.011506398966772337,
+        "predicted_share": 0.014608068295010764,
+        "pred_over_obs_ratio": 1.2695603843735377
+      },
+      {
+        "hour": 3,
+        "observed_crashes": 111.0,
+        "observed_share": 0.013032758013384995,
+        "predicted_share": 0.011668474450876008,
+        "pred_over_obs_ratio": 0.8953188909739727
+      },
+      {
+        "hour": 4,
+        "observed_crashes": 81.0,
+        "observed_share": 0.009510390982740402,
+        "predicted_share": 0.01053266792347452,
+        "pred_over_obs_ratio": 1.1074905272127467
+      },
+      {
+        "hour": 5,
+        "observed_crashes": 132.0,
+        "observed_share": 0.01549841493483621,
+        "predicted_share": 0.012441618822897686,
+        "pred_over_obs_ratio": 0.8027671781410575
+      },
+      {
+        "hour": 6,
+        "observed_crashes": 174.0,
+        "observed_share": 0.020429728777738642,
+        "predicted_share": 0.018516003800688696,
+        "pred_over_obs_ratio": 0.9063264618992276
+      },
+      {
+        "hour": 7,
+        "observed_crashes": 386.0,
+        "observed_share": 0.045321122460960435,
+        "predicted_share": 0.04160513459467674,
+        "pred_over_obs_ratio": 0.9180075941524917
+      },
+      {
+        "hour": 8,
+        "observed_crashes": 412.0,
+        "observed_share": 0.04837384055418575,
+        "predicted_share": 0.04938632998329047,
+        "pred_over_obs_ratio": 1.0209305156982644
+      },
+      {
+        "hour": 9,
+        "observed_crashes": 361.0,
+        "observed_share": 0.04238581660208994,
+        "predicted_share": 0.046259121730964525,
+        "pred_over_obs_ratio": 1.0913821046610106
+      },
+      {
+        "hour": 10,
+        "observed_crashes": 348.0,
+        "observed_share": 0.040859457555477284,
+        "predicted_share": 0.046444566781955444,
+        "pred_over_obs_ratio": 1.1366907335687197
+      },
+      {
+        "hour": 11,
+        "observed_crashes": 449.0,
+        "observed_share": 0.05271809322531408,
+        "predicted_share": 0.0504554408885794,
+        "pred_over_obs_ratio": 0.9570801560089771
+      },
+      {
+        "hour": 12,
+        "observed_crashes": 483.0,
+        "observed_share": 0.05671010919337795,
+        "predicted_share": 0.0587143900991248,
+        "pred_over_obs_ratio": 1.0353425682696602
+      },
+      {
+        "hour": 13,
+        "observed_crashes": 491.0,
+        "observed_share": 0.05764940706821651,
+        "predicted_share": 0.06490082982282129,
+        "pred_over_obs_ratio": 1.1257848627310976
+      },
+      {
+        "hour": 14,
+        "observed_crashes": 596.0,
+        "observed_share": 0.06997769167547259,
+        "predicted_share": 0.07284049774180187,
+        "pred_over_obs_ratio": 1.0409102672263868
+      },
+      {
+        "hour": 15,
+        "observed_crashes": 738.0,
+        "observed_share": 0.08665022895385699,
+        "predicted_share": 0.07905269701220399,
+        "pred_over_obs_ratio": 0.9123195399091347
+      },
+      {
+        "hour": 16,
+        "observed_crashes": 678.0,
+        "observed_share": 0.07960549489256781,
+        "predicted_share": 0.0801634078987428,
+        "pred_over_obs_ratio": 1.0070084735598708
+      },
+      {
+        "hour": 17,
+        "observed_crashes": 688.0,
+        "observed_share": 0.080779617236116,
+        "predicted_share": 0.07774977641243687,
+        "pred_over_obs_ratio": 0.9624925082917513
+      },
+      {
+        "hour": 18,
+        "observed_crashes": 582.0,
+        "observed_share": 0.0683339203945051,
+        "predicted_share": 0.05992722047034666,
+        "pred_over_obs_ratio": 0.8769761799758463
+      },
+      {
+        "hour": 19,
+        "observed_crashes": 371.0,
+        "observed_share": 0.04355993894563814,
+        "predicted_share": 0.046512389249660856,
+        "pred_over_obs_ratio": 1.067779027599357
+      },
+      {
+        "hour": 20,
+        "observed_crashes": 321.0,
+        "observed_share": 0.03768932722789715,
+        "predicted_share": 0.03694588645316878,
+        "pred_over_obs_ratio": 0.9802745013135155
+      },
+      {
+        "hour": 21,
+        "observed_crashes": 293.0,
+        "observed_share": 0.03440178466596219,
+        "predicted_share": 0.034107796635057294,
+        "pred_over_obs_ratio": 0.9914542796613753
+      },
+      {
+        "hour": 22,
+        "observed_crashes": 212.0,
+        "observed_share": 0.024891393683221793,
+        "predicted_share": 0.02818214092080315,
+        "pred_over_obs_ratio": 1.132204218030568
+      },
+      {
+        "hour": 23,
+        "observed_crashes": 214.0,
+        "observed_share": 0.02512621815193143,
+        "predicted_share": 0.02397177925744028,
+        "pred_over_obs_ratio": 0.9540544109141068
+      }
+    ],
+    "profile_only_preholdout": [
+      {
+        "hour": 0,
+        "observed_crashes": 169.0,
+        "observed_share": 0.01984266760596454,
+        "predicted_share": 0.02149189459455854,
+        "pred_over_obs_ratio": 1.0831151849813911
+      },
+      {
+        "hour": 1,
+        "observed_crashes": 129.0,
+        "observed_share": 0.01514617823177175,
+        "predicted_share": 0.01896999303959642,
+        "pred_over_obs_ratio": 1.2524607032421915
+      },
+      {
+        "hour": 2,
+        "observed_crashes": 98.0,
+        "observed_share": 0.011506398966772337,
+        "predicted_share": 0.01797431694094163,
+        "pred_over_obs_ratio": 1.5621148712857131
+      },
+      {
+        "hour": 3,
+        "observed_crashes": 111.0,
+        "observed_share": 0.013032758013384995,
+        "predicted_share": 0.013990683159339863,
+        "pred_over_obs_ratio": 1.073501337550429
+      },
+      {
+        "hour": 4,
+        "observed_crashes": 81.0,
+        "observed_share": 0.009510390982740402,
+        "predicted_share": 0.012906094163967416,
+        "pred_over_obs_ratio": 1.357051901166796
+      },
+      {
+        "hour": 5,
+        "observed_crashes": 132.0,
+        "observed_share": 0.01549841493483621,
+        "predicted_share": 0.015051567706037756,
+        "pred_over_obs_ratio": 0.9711681981236634
+      },
+      {
+        "hour": 6,
+        "observed_crashes": 174.0,
+        "observed_share": 0.020429728777738642,
+        "predicted_share": 0.02203690832055958,
+        "pred_over_obs_ratio": 1.078668667621873
+      },
+      {
+        "hour": 7,
+        "observed_crashes": 386.0,
+        "observed_share": 0.045321122460960435,
+        "predicted_share": 0.042741697438672774,
+        "pred_over_obs_ratio": 0.9430855883035647
+      },
+      {
+        "hour": 8,
+        "observed_crashes": 412.0,
+        "observed_share": 0.04837384055418575,
+        "predicted_share": 0.052111716505606136,
+        "pred_over_obs_ratio": 1.0772706055297268
+      },
+      {
+        "hour": 9,
+        "observed_crashes": 361.0,
+        "observed_share": 0.04238581660208994,
+        "predicted_share": 0.04430462619558477,
+        "pred_over_obs_ratio": 1.0452700867251952
+      },
+      {
+        "hour": 10,
+        "observed_crashes": 348.0,
+        "observed_share": 0.040859457555477284,
+        "predicted_share": 0.044306814459766454,
+        "pred_over_obs_ratio": 1.0843710883730773
+      },
+      {
+        "hour": 11,
+        "observed_crashes": 449.0,
+        "observed_share": 0.05271809322531408,
+        "predicted_share": 0.048768910578245075,
+        "pred_over_obs_ratio": 0.9250886668038157
+      },
+      {
+        "hour": 12,
+        "observed_crashes": 483.0,
+        "observed_share": 0.05671010919337795,
+        "predicted_share": 0.05627454315198859,
+        "pred_over_obs_ratio": 0.9923194286241964
+      },
+      {
+        "hour": 13,
+        "observed_crashes": 491.0,
+        "observed_share": 0.05764940706821651,
+        "predicted_share": 0.059752175563671774,
+        "pred_over_obs_ratio": 1.036475110541329
+      },
+      {
+        "hour": 14,
+        "observed_crashes": 596.0,
+        "observed_share": 0.06997769167547259,
+        "predicted_share": 0.06599108961002276,
+        "pred_over_obs_ratio": 0.9430303862559795
+      },
+      {
+        "hour": 15,
+        "observed_crashes": 738.0,
+        "observed_share": 0.08665022895385699,
+        "predicted_share": 0.07697612382599163,
+        "pred_over_obs_ratio": 0.8883545347235375
+      },
+      {
+        "hour": 16,
+        "observed_crashes": 678.0,
+        "observed_share": 0.07960549489256781,
+        "predicted_share": 0.07665670697611915,
+        "pred_over_obs_ratio": 0.9629574827663816
+      },
+      {
+        "hour": 17,
+        "observed_crashes": 688.0,
+        "observed_share": 0.080779617236116,
+        "predicted_share": 0.07487272577296329,
+        "pred_over_obs_ratio": 0.9268764613493146
+      },
+      {
+        "hour": 18,
+        "observed_crashes": 582.0,
+        "observed_share": 0.0683339203945051,
+        "predicted_share": 0.059615500962185035,
+        "pred_over_obs_ratio": 0.8724144702662028
+      },
+      {
+        "hour": 19,
+        "observed_crashes": 371.0,
+        "observed_share": 0.04355993894563814,
+        "predicted_share": 0.04696805067114646,
+        "pred_over_obs_ratio": 1.0782395891271008
+      },
+      {
+        "hour": 20,
+        "observed_crashes": 321.0,
+        "observed_share": 0.03768932722789715,
+        "predicted_share": 0.038066442090437774,
+        "pred_over_obs_ratio": 1.0100058793902134
+      },
+      {
+        "hour": 21,
+        "observed_crashes": 293.0,
+        "observed_share": 0.03440178466596219,
+        "predicted_share": 0.034445863456250184,
+        "pred_over_obs_ratio": 1.0012812937094977
+      },
+      {
+        "hour": 22,
+        "observed_crashes": 212.0,
+        "observed_share": 0.024891393683221793,
+        "predicted_share": 0.030172471713023574,
+        "pred_over_obs_ratio": 1.212164818772744
+      },
+      {
+        "hour": 23,
+        "observed_crashes": 214.0,
+        "observed_share": 0.02512621815193143,
+        "predicted_share": 0.025553083103323382,
+        "pred_over_obs_ratio": 1.0169888261261928
+      }
+    ]
+  },
+  "observed_peak_hour": 15,
+  "observed_hour_totals": [
+    169.0,
+    129.0,
+    98.0,
+    111.0,
+    81.0,
+    132.0,
+    174.0,
+    386.0,
+    412.0,
+    361.0,
+    348.0,
+    449.0,
+    483.0,
+    491.0,
+    596.0,
+    738.0,
+    678.0,
+    688.0,
+    582.0,
+    371.0,
+    321.0,
+    293.0,
+    212.0,
+    214.0
+  ]
+}

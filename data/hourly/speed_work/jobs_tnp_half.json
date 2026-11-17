@@ -1,0 +1,358 @@
+[
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2019H1",
+  "start": "2019-01-01T00:00:00",
+  "end": "2019-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2020H1",
+  "start": "2020-01-01T00:00:00",
+  "end": "2020-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2021H1",
+  "start": "2021-01-01T00:00:00",
+  "end": "2021-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2022H1",
+  "start": "2022-01-01T00:00:00",
+  "end": "2022-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2019H2",
+  "start": "2019-07-01T00:00:00",
+  "end": "2020-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2020H2",
+  "start": "2020-07-01T00:00:00",
+  "end": "2021-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2021H2",
+  "start": "2021-07-01T00:00:00",
+  "end": "2022-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "m6dm-c72p",
+  "label": "valid_2022H2",
+  "start": "2022-07-01T00:00:00",
+  "end": "2023-01-01T00:00:00"
+ },
+ {
+  "kind": "holiday",
+  "did": "m6dm-c72p",
+  "label": "holiday",
+  "start": "2019-01-01T00:00:00",
+  "end": "2023-01-01T00:00:00",
+  "holidays": "/home/hatch/workspace/redunator/data/hourly/speed_work/holidays_m6dm-c72p.json"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_zero_2019",
+  "start": "2019-01-01T00:00:00",
+  "end": "2020-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_missing_2019",
+  "start": "2019-01-01T00:00:00",
+  "end": "2020-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_absurd_2019",
+  "start": "2019-01-01T00:00:00",
+  "end": "2020-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_zero_2020",
+  "start": "2020-01-01T00:00:00",
+  "end": "2021-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_missing_2020",
+  "start": "2020-01-01T00:00:00",
+  "end": "2021-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_absurd_2020",
+  "start": "2020-01-01T00:00:00",
+  "end": "2021-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_zero_2021",
+  "start": "2021-01-01T00:00:00",
+  "end": "2022-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_missing_2021",
+  "start": "2021-01-01T00:00:00",
+  "end": "2022-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_absurd_2021",
+  "start": "2021-01-01T00:00:00",
+  "end": "2022-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_zero_2022",
+  "start": "2022-01-01T00:00:00",
+  "end": "2023-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_missing_2022",
+  "start": "2022-01-01T00:00:00",
+  "end": "2023-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "m6dm-c72p",
+  "label": "edge_absurd_2022",
+  "start": "2022-01-01T00:00:00",
+  "end": "2023-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023H1",
+  "start": "2023-01-01T00:00:00",
+  "end": "2023-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2023H2",
+  "start": "2023-07-01T00:00:00",
+  "end": "2024-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024H1",
+  "start": "2024-01-01T00:00:00",
+  "end": "2024-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "n26f-ihde",
+  "label": "valid_2024H2",
+  "start": "2024-07-01T00:00:00",
+  "end": "2025-01-01T00:00:00"
+ },
+ {
+  "kind": "holiday",
+  "did": "n26f-ihde",
+  "label": "holiday",
+  "start": "2023-01-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "holidays": "/home/hatch/workspace/redunator/data/hourly/speed_work/holidays_n26f-ihde.json"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2023",
+  "start": "2023-01-01T00:00:00",
+  "end": "2024-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2023",
+  "start": "2023-01-01T00:00:00",
+  "end": "2024-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_absurd_2023",
+  "start": "2023-01-01T00:00:00",
+  "end": "2024-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_zero_2024",
+  "start": "2024-01-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_missing_2024",
+  "start": "2024-01-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "n26f-ihde",
+  "label": "edge_absurd_2024",
+  "start": "2024-01-01T00:00:00",
+  "end": "2025-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "valid",
+  "did": "6dvr-xwnh",
+  "label": "valid_2025H1",
+  "start": "2025-01-01T00:00:00",
+  "end": "2025-07-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "6dvr-xwnh",
+  "label": "valid_2025H2",
+  "start": "2025-07-01T00:00:00",
+  "end": "2026-01-01T00:00:00"
+ },
+ {
+  "kind": "valid",
+  "did": "6dvr-xwnh",
+  "label": "valid_2026H1",
+  "start": "2026-01-01T00:00:00",
+  "end": "2026-08-01T00:00:00"
+ },
+ {
+  "kind": "holiday",
+  "did": "6dvr-xwnh",
+  "label": "holiday",
+  "start": "2025-01-01T00:00:00",
+  "end": "2026-08-01T00:00:00",
+  "holidays": "/home/hatch/workspace/redunator/data/hourly/speed_work/holidays_6dvr-xwnh.json"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_zero_2025",
+  "start": "2025-01-01T00:00:00",
+  "end": "2026-01-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_missing_2025",
+  "start": "2025-01-01T00:00:00",
+  "end": "2026-01-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_absurd_2025",
+  "start": "2025-01-01T00:00:00",
+  "end": "2026-01-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_zero_2026H1",
+  "start": "2026-01-01T00:00:00",
+  "end": "2026-08-01T00:00:00",
+  "class": "zero"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_missing_2026H1",
+  "start": "2026-01-01T00:00:00",
+  "end": "2026-08-01T00:00:00",
+  "class": "missing"
+ },
+ {
+  "kind": "edge",
+  "did": "6dvr-xwnh",
+  "label": "edge_absurd_2026H1",
+  "start": "2026-01-01T00:00:00",
+  "end": "2026-08-01T00:00:00",
+  "class": "absurd"
+ },
+ {
+  "kind": "series",
+  "did": "6dvr-xwnh",
+  "label": "series_202501_202609",
+  "start": "2025-01-01T00:00:00",
+  "end": "2026-10-01T00:00:00"
+ },
+ {
+  "kind": "area",
+  "did": "6dvr-xwnh",
+  "label": "area_2026-08a",
+  "start": "2026-08-01T00:00:00",
+  "end": "2026-08-16T00:00:00"
+ },
+ {
+  "kind": "area",
+  "did": "6dvr-xwnh",
+  "label": "area_2026-08b",
+  "start": "2026-08-16T00:00:00",
+  "end": "2026-09-01T00:00:00"
+ },
+ {
+  "kind": "area",
+  "did": "6dvr-xwnh",
+  "label": "area_2026-09a",
+  "start": "2026-09-01T00:00:00",
+  "end": "2026-09-16T00:00:00"
+ },
+ {
+  "kind": "area",
+  "did": "6dvr-xwnh",
+  "label": "area_2026-09b",
+  "start": "2026-09-16T00:00:00",
+  "end": "2026-10-01T00:00:00"
+ }
+]

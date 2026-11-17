@@ -1,0 +1,296 @@
+{
+  "bar_v1_full_holdout": {
+    "rmse": 3.3068,
+    "mae": 2.1452
+  },
+  "windows": {
+    "fresh": "2026-08-01 -> 2026-09-24",
+    "full": "2026-08-01 -> 2026-10-29"
+  },
+  "variants": {
+    "baseline": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.350369663210734,
+          "mae": 2.1853415706456794
+        },
+        "full": {
+          "rmse": 3.306837019543589,
+          "mae": 2.1451720889686663
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.4077075499103797,
+          "mae": 2.1832589940946945
+        },
+        "full": {
+          "rmse": 3.361325987970801,
+          "mae": 2.147685017648059
+        }
+      }
+    },
+    "spd500": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code",
+        "spd500_lag_1d",
+        "spd500_roll_mean_7d",
+        "spd500_roll_mean_30d",
+        "spd500_mean_pre_test",
+        "has_spd500",
+        "spd500_dist_m",
+        "speed_age_days"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.3450452260048396,
+          "mae": 2.1841425545362365
+        },
+        "full": {
+          "rmse": 3.304570961420297,
+          "mae": 2.1446635189972505
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.4432386666222756,
+          "mae": 2.195736994422739
+        },
+        "full": {
+          "rmse": 3.4025862217579155,
+          "mae": 2.1576353979600413
+        }
+      }
+    },
+    "spd200": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code",
+        "spd200_lag_1d",
+        "spd200_roll_mean_7d",
+        "spd200_roll_mean_30d",
+        "spd200_mean_pre_test",
+        "has_spd200",
+        "spd200_dist_m",
+        "speed_age_days"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.350409799083143,
+          "mae": 2.1842793489730785
+        },
+        "full": {
+          "rmse": 3.305287355339872,
+          "mae": 2.1433719038861194
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.412851676947515,
+          "mae": 2.1844308225517994
+        },
+        "full": {
+          "rmse": 3.391992240012169,
+          "mae": 2.149383039905525
+        }
+      }
+    },
+    "spd_city": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code",
+        "spd_city_lag_1d",
+        "spd_city_roll_mean_7d",
+        "spd_city_roll_mean_30d",
+        "spd_city_mean_pre_test",
+        "speed_age_days"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.3520368105768177,
+          "mae": 2.1890538717872916
+        },
+        "full": {
+          "rmse": 3.3076039453012718,
+          "mae": 2.1461097056069147
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.3941586004886077,
+          "mae": 2.190209621502419
+        },
+        "full": {
+          "rmse": 3.347954733027347,
+          "mae": 2.1509968320288952
+        }
+      }
+    },
+    "spd_all": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code",
+        "spd500_lag_1d",
+        "spd500_roll_mean_7d",
+        "spd500_roll_mean_30d",
+        "spd500_mean_pre_test",
+        "has_spd500",
+        "spd500_dist_m",
+        "spd_city_lag_1d",
+        "spd_city_roll_mean_7d",
+        "spd_city_roll_mean_30d",
+        "spd_city_mean_pre_test",
+        "speed_age_days"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.3416987887953886,
+          "mae": 2.1873069615435536
+        },
+        "full": {
+          "rmse": 3.3041437290004447,
+          "mae": 2.1448424090972225
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.384095571325948,
+          "mae": 2.1860777345656732
+        },
+        "full": {
+          "rmse": 3.328040127736919,
+          "mae": 2.1462435890770344
+        }
+      }
+    },
+    "spd_age_only": {
+      "features": [
+        "dow",
+        "month",
+        "year",
+        "season",
+        "day_of_year",
+        "is_weekend",
+        "is_holiday",
+        "days_since_first",
+        "lag_1d",
+        "roll_mean_7d",
+        "roll_mean_30d",
+        "cam_mean_pre_test",
+        "cam_std_pre_test",
+        "cam_n_days_pre_test",
+        "latitude",
+        "longitude",
+        "cam_code",
+        "speed_age_days"
+      ],
+      "random_forest": {
+        "fresh": {
+          "rmse": 3.3505032949916718,
+          "mae": 2.1851115009603714
+        },
+        "full": {
+          "rmse": 3.3057499911927963,
+          "mae": 2.144120001394803
+        }
+      },
+      "xgboost": {
+        "fresh": {
+          "rmse": 3.4206952823610792,
+          "mae": 2.1913075336368113
+        },
+        "full": {
+          "rmse": 3.378036457451274,
+          "mae": 2.1525996773132334
+        }
+      }
+    }
+  },
+  "complete": true,
+  "ship_decision": {
+    "shipped": false,
+    "variant": null,
+    "model": null,
+    "rule": "RF speed variant must beat same-run baseline on the fresh window (2026-08-01 -> 2026-09-24) AND beat the v1 bar (RMSE 3.3068 / MAE 2.1452) on the full holdout (2026-08-01 -> 2026-10-29, carry-forward October) AND beat the staleness control (v1 + speed_age_days only) on the full holdout \u2014 a gain the control reproduces is a date effect, not speed information."
+  }
+}

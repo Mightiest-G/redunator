@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "n26f-ihde",
+ "label": "edge_zero_2024H2",
+ "class": "zero",
+ "start": "2024-07-01T00:00:00",
+ "end": "2025-01-01T00:00:00",
+ "n": 126,
+ "seconds": 1.2,
+ "where": "trip_start_timestamp >= '2024-07-01T00:00:00' AND trip_start_timestamp < '2025-01-01T00:00:00' AND (trip_seconds = 0)"
+}

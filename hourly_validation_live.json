@@ -1,0 +1,185 @@
+{
+  "holdout": {
+    "start": "2026-08-01",
+    "end": "2026-10-29",
+    "days": 90,
+    "cameras": 361,
+    "camera_hours": 779760,
+    "observed_crashes_attributed": 8517.0,
+    "nonzero_camera_hours": 8345,
+    "observed_peak_hour": 15,
+    "note": "Same protocol as validate_hourly.py / validate_hourly_2d.py. Live signal stand-in: archive ACTUAL weather for the hour (no forecast archive exists; no forecast data invented). Adjustment touches one hour per variant and renormalises the day; LIVE-A/LIVE-B numbers are means over all 24 choices of current hour."
+  },
+  "weather_multipliers_holdout": {
+    "hours_above_1.0": 438,
+    "hours_total": 2160,
+    "fraction_above_1.0": 0.20277777777777778,
+    "mean": 1.0222946296296296,
+    "max": 1.15,
+    "mean_among_wet": 1.1099461187214612
+  },
+  "variants": {
+    "profile_plus_slowness": {
+      "mean_poisson_deviance": 0.09436894554962426,
+      "rmse": 0.10575337539984848,
+      "mae": 0.020960521341222508,
+      "pred_total": 8110.294627383015,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830582,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.990643887876162,
+      "share_spearman_rho": 0.9860869565217389,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.09196620017178266,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "profile_plus_weather_plus_slowness": {
+      "mean_poisson_deviance": 0.09438966888629914,
+      "rmse": 0.1057546300508641,
+      "mae": 0.02096036080540712,
+      "pred_total": 8110.294627383016,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830584,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9903780848868649,
+      "share_spearman_rho": 0.9860869565217389,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.09228640088967856,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "b12_shape": {
+      "mean_poisson_deviance": 0.09325971943674431,
+      "rmse": 0.10570549988408046,
+      "mae": 0.020968926057770836,
+      "pred_total": 8110.294628328644,
+      "actual_total": 8517.0,
+      "mean_pred": 0.0104010139380433,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9884784184615008,
+      "share_spearman_rho": 0.9817391304347826,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.08007726336863404,
+      "obs_peak_share": 0.08665022895385699
+    },
+    "LIVE-A_profile_slowness_plus_live_current_hour": {
+      "mean_poisson_deviance": 0.09437043044952546,
+      "mean_poisson_deviance_min_over_choices": 0.09436361843537693,
+      "mean_poisson_deviance_max_over_choices": 0.09438250301188746,
+      "rmse": 0.10575348644113775,
+      "mae": 0.020960514108644353,
+      "pred_total": 8110.294627383016,
+      "actual_total": 8517.0,
+      "mean_pred": 0.010401013936830584,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9906343358439986,
+      "share_spearman_rho": 0.9860869565217389,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.09198027491544981,
+      "obs_peak_share": 0.08665022895385699,
+      "per_choice_deviance": [
+        0.09436841675275805,
+        0.09436624386631508,
+        0.09436812743270799,
+        0.09436824723415949,
+        0.09436876215189809,
+        0.09436617725680692,
+        0.09436594691331969,
+        0.09436361843537693,
+        0.09437543707714924,
+        0.09437140416246068,
+        0.09436836166127929,
+        0.09436752774570481,
+        0.09437151017511529,
+        0.09437056809489919,
+        0.09437798824757981,
+        0.09438250301188746,
+        0.09437973153854455,
+        0.0943729180806411,
+        0.09437215665285695,
+        0.0943697102743948,
+        0.09436747802896618,
+        0.09436946202576947,
+        0.0943695126965326,
+        0.09436852127148741
+      ]
+    },
+    "LIVE-B_b12_shape_plus_live_current_hour_topup": {
+      "mean_poisson_deviance": 0.09326154040791386,
+      "mean_poisson_deviance_min_over_choices": 0.09325280874020535,
+      "mean_poisson_deviance_max_over_choices": 0.09326718128244119,
+      "rmse": 0.10570563467488059,
+      "mae": 0.020968921515873474,
+      "pred_total": 8110.294628328644,
+      "actual_total": 8517.0,
+      "mean_pred": 0.0104010139380433,
+      "mean_actual": 0.010922591566635888,
+      "share_pearson_r": 0.9884643086522552,
+      "share_spearman_rho": 0.9817391304347826,
+      "pred_peak_hour": 16,
+      "pred_peak_share": 0.08008924601825984,
+      "obs_peak_share": 0.08665022895385699,
+      "per_choice_deviance": [
+        0.09326234094673001,
+        0.0932610446715347,
+        0.09326048925441384,
+        0.09326048953114371,
+        0.09326044104318873,
+        0.09325773966823322,
+        0.0932567947848468,
+        0.09325280874020535,
+        0.09326129581296952,
+        0.0932635092246852,
+        0.0932621306172412,
+        0.09326021998755889,
+        0.09326398821382781,
+        0.09326323839667902,
+        0.09326718128244119,
+        0.09326579298239683,
+        0.09326373922750551,
+        0.09325806824975409,
+        0.09326176681163316,
+        0.09326033707163212,
+        0.09326197401514918,
+        0.09326464275506138,
+        0.0932655161237566,
+        0.09326142037734479
+      ]
+    }
+  },
+  "reproduction_check": {
+    "profile_plus_slowness": {
+      "recorded_deviance": 0.094369,
+      "reproduced_deviance": 0.09436894554962426,
+      "abs_diff": 5.445037573603706e-08
+    },
+    "profile_plus_weather_plus_slowness": {
+      "recorded_deviance": 0.09439,
+      "reproduced_deviance": 0.09438966888629914,
+      "abs_diff": 3.3111370086047476e-07
+    },
+    "b12_shape": {
+      "recorded_deviance": 0.09326,
+      "reproduced_deviance": 0.09325971943674431,
+      "abs_diff": 2.8056325568348583e-07
+    }
+  },
+  "LIVE-C_all_signals_stale": {
+    "verdict": "degrades to unadjusted baseline exactly",
+    "check": "apply_hour_adjustment(x, h, 1.0) == x element-wise; weather_delta_factor(None, None, None, 1.0) == 1.0; public-function assertion in smoke_test_live_adjust.py"
+  },
+  "verdict": {
+    "LIVE-A_vs_profile_plus_slowness": {
+      "adjusted_deviance": 0.09437043044952546,
+      "baseline_deviance": 0.09436894554962426,
+      "delta": 1.48489990120515e-06,
+      "verdict": "DO NOT SHIP"
+    },
+    "LIVE-B_vs_b12_shape": {
+      "adjusted_deviance": 0.09326154040791386,
+      "baseline_deviance": 0.09325971943674431,
+      "delta": 1.8209711695471587e-06,
+      "verdict": "DO NOT SHIP"
+    },
+    "overall": "DO NOT SHIP \u2014 neither live-adjusted variant beats its baseline on mean Poisson deviance; the adjustment stays experimental in live_adjust.py, not wired as a default path."
+  }
+}

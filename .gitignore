@@ -1,0 +1,34 @@
+# Secrets — never commit. HERE_API_KEY lives in .env; TomTom comes from
+# the custom.tomtom connector locally and TOMTOM_API_KEY on Render.
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+redunator-venv/
+*.egg-info/
+
+# Large regenerable data: raw downloads (ingest.py re-pulls them),
+# Flutter build outputs, and per-run retrain staging (~440 MB/run).
+data/raw/
+app/build/
+app/.dart_tool/
+.dart_tool/
+retrain_runs/
+work/
+.tmp/
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Experiment artifact (2.7 GB unbounded RF — not the shipped depth-12 model)
+*_unbounded.joblib
+# Raw hourly downloads (processed parquet + findings docs preserve results)
+data/hourly/raw/

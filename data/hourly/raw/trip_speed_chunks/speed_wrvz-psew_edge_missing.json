@@ -1,0 +1,11 @@
+{
+ "kind": "edge",
+ "dataset": "wrvz-psew",
+ "label": "edge_missing",
+ "class": "missing",
+ "start": "2023-01-01T00:00:00",
+ "end": "2024-01-01T00:00:00",
+ "n": 1304,
+ "seconds": 2.3,
+ "where": "trip_start_timestamp >= '2023-01-01T00:00:00' AND trip_start_timestamp < '2024-01-01T00:00:00' AND (trip_seconds IS NULL OR trip_miles IS NULL)"
+}

@@ -1,0 +1,80 @@
+{
+ "tnp|m6dm-c72p|2019-10a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-10a",
+  "rows": 27982,
+  "trips": 4409350,
+  "null_area_trips": 302446,
+  "seconds": null,
+  "pages": null,
+  "min_day": "2019-10-01",
+  "max_day": "2019-10-15",
+  "where": "trip_start_timestamp >= '2019-10-01T00:00:00' AND trip_start_timestamp < '2019-10-16T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-10b": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-10b",
+  "rows": 29840,
+  "trips": 5091169,
+  "null_area_trips": 337926,
+  "seconds": 126.7,
+  "pages": 1,
+  "min_day": "2019-10-16",
+  "max_day": "2019-10-31",
+  "where": "trip_start_timestamp >= '2019-10-16T00:00:00' AND trip_start_timestamp < '2019-11-01T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-11a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-11a",
+  "rows": 27991,
+  "trips": 4881050,
+  "null_area_trips": 318063,
+  "seconds": 166.2,
+  "pages": 1,
+  "min_day": "2019-11-01",
+  "max_day": "2019-11-15",
+  "where": "trip_start_timestamp >= '2019-11-01T00:00:00' AND trip_start_timestamp < '2019-11-16T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-11b": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-11b",
+  "rows": 28017,
+  "trips": 4424397,
+  "null_area_trips": 304324,
+  "seconds": 43.6,
+  "pages": 1,
+  "min_day": "2019-11-16",
+  "max_day": "2019-11-30",
+  "where": "trip_start_timestamp >= '2019-11-16T00:00:00' AND trip_start_timestamp < '2019-12-01T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-12a": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-12a",
+  "rows": 27994,
+  "trips": 4905381,
+  "null_area_trips": 314822,
+  "seconds": 16.6,
+  "pages": 1,
+  "min_day": "2019-12-01",
+  "max_day": "2019-12-15",
+  "where": "trip_start_timestamp >= '2019-12-01T00:00:00' AND trip_start_timestamp < '2019-12-16T00:00:00'"
+ },
+ "tnp|m6dm-c72p|2019-12b": {
+  "source": "tnp",
+  "dataset": "m6dm-c72p",
+  "month": "2019-12b",
+  "rows": 29847,
+  "trips": 4336100,
+  "null_area_trips": 299640,
+  "seconds": 151.9,
+  "pages": 1,
+  "min_day": "2019-12-16",
+  "max_day": "2019-12-31",
+  "where": "trip_start_timestamp >= '2019-12-16T00:00:00' AND trip_start_timestamp < '2020-01-01T00:00:00'"
+ }
+}

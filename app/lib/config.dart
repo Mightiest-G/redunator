@@ -1,0 +1,32 @@
+// Redunator configuration.
+//
+// GOOGLE MAPS API KEY — THE ONLY place the key lives in this app.
+// ------------------------------------------------------------------
+// 1. Copy this file's value into a real key:
+//      const String googleMapsApiKey = 'AIza...';
+//    Get a key in the Google Cloud console:
+//      Cloud Console -> APIs & Services -> Credentials -> Create Credentials
+//      -> API key, then restrict it (Android apps, package
+//      com.redunator.redunator) and enable "Maps SDK for Android" and
+//      "Directions API" (Directions is only used as a fallback if OSRM
+//      routing fails — see lib/api/routing.dart).
+// 2. Rebuild the app. The same value is read by
+//    android/app/build.gradle.kts (regex over this file) and injected
+//    into AndroidManifest.xml as com.google.android.geo.API_KEY.
+// 3. Do NOT commit a real key. Keep this file local, or use a build
+//    variant that injects it at build time.
+//
+// When the key is empty, the app does NOT crash and does NOT show a
+// blank map: the Map tab shows a full-screen explanation with these
+// steps instead (see lib/widgets/missing_key_view.dart).
+const String googleMapsApiKey = 'AIzaSyCiCbbOvejHZgOREi9d4JX0X1DXbZ3co3Q';
+
+/// Default backend base URL for the Android emulator, which reaches
+/// the host machine's localhost as 10.0.2.2. Overridable in Settings.
+/// For a physical device use the host's LAN IP, e.g.
+/// http://192.168.1.10:8000, or a deployed backend URL.
+const String defaultBaseUrl = 'http://10.0.2.2:8000';
+
+/// Whether the key above is present. Used by the UI to decide between
+/// the real map and the missing-key explanation.
+bool get hasMapsApiKey => googleMapsApiKey.isNotEmpty;
