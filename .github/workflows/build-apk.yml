@@ -15,6 +15,14 @@ on:
 permissions:
   contents: write
 
+# The Gradle wrapper downloads its distribution from services.gradle.org.
+# On some runners the JVM tries IPv6 first and the connect fails with
+# "Network is unreachable" (run #1, 2026-11-17). JAVA_TOOL_OPTIONS is
+# picked up by every JVM the build spawns (wrapper, daemon, workers),
+# so forcing IPv4 there covers all of them.
+env:
+  JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,13 +39,26 @@ jobs:
           flutter-version: '3.50.0'
           channel: stable
 
+      # Cache the downloaded Gradle distribution so later runs never
+      # have to fetch it again (and a failed first download is retried
+      # by the build step below instead of failing the whole run).
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('app/android/gradle/wrapper/gradle-wrapper.properties', 'app/pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Install dependencies
         working-directory: app
         run: flutter pub get
 
+      # Retry once: the Gradle distribution download can fail transiently.
       - name: Build release APK
         working-directory: app
-        run: flutter build apk --release
+        run: flutter build apk --release || flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
