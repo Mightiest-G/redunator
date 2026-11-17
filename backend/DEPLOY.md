@@ -268,3 +268,47 @@ on "My Billing Account 2" guards it).
   image (same commands as §7 above, new tag), or push the new model
   files and let a fresh build pick them up. The image is a snapshot;
   the live service does not pick up repo changes by itself.
+---
+
+## 8. Flutter APK — GitHub Actions build (standing pipeline, live 2026-11-17)
+
+- **Why Actions:** the local VM cannot build the APK anymore — the
+  Gradle daemon starts but the client can never dispatch to it
+  ("Could not dispatch a message to the daemon", connection reset),
+  even after fixing the JDK CA store and the proxy CA rotation; a
+  Java NIO loopback test returned proxy-banner bytes, so the sandbox
+  intercepts Java TCP. Do not keep retrying Gradle locally.
+- **Workflow:** `.github/workflows/build-apk.yml` — on every push to
+  main touching `app/**` (or the workflow itself): checkout,
+  setup-java 17 (Temurin), subosito/flutter-action@v2 (Flutter
+  3.50.0), cache `~/.gradle/wrapper` + `~/.gradle/caches`,
+  `flutter pub get`, `flutter build apk --release` (retries once),
+  then uploads the APK as artifact `app-release-apk` AND publishes
+  a GitHub Release tagged `apk-<run-number>` with the APK attached.
+- **Two fixes baked in (learned from run #1, 2026-11-17):**
+  (1) the JVM tried IPv6 first for the Gradle distribution download
+  and failed with "Network is unreachable" — the workflow now sets
+  `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`, which every
+  JVM the build spawns picks up; (2) the repo's
+  `app/android/gradle.properties` carried this VM's sandbox egress
+  proxy (`fd8b:4f84:7d32:99::1:3128`) — on a runner that address
+  does not exist, so the daemon's downloads would fail. Proxy lines
+  now live only in the local `GRADLE_USER_HOME/gradle.properties`
+  (never committed), with a note in the repo file.
+- **First successful build:** run #2, 2026-11-17 10:42 CST, 19m 13s
+  (build step 17m 14s — first run downloads the NDK, so it is slow;
+  later runs reuse the cache). Release `apk-2`:
+  https://github.com/Mightiest-G/redunator/releases/tag/apk-2 —
+  `app-release.apk`, 54,888,506 bytes, sha256
+  ced34ea3241dbcdc46ca11327b2a42e06405e8a6a7dcdd99c0a62fdaef4699bc.
+  Verified in a Codespace by `strings`: the live Cloud Run URL
+  appears 3 times; `10.0.2.2` appears only inside a local-dev help
+  string, never as the configured default. The app's
+  `defaultBaseUrl` is the Cloud Run URL (commit 61ff475); a fresh
+  install uses it directly.
+- **Pushing to GitHub:** the Muse GitHub App has NO Contents:write
+  on this repo (`push_files` returns 403), so pushes go via a
+  Codespace + git bundle + temporary-release transfer (VS Code
+  Explorer Upload silently truncates the bundle — always verify
+  the byte size and use the temp-release workaround). The workflow
+  triggers automatically on the push.
