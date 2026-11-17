@@ -17,8 +17,9 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Single uvicorn worker (the default): rate limiting is in-memory per
-# process, and one worker already uses ~1.2 GB warm — do NOT raise
-# --workers on the free/512 MB plans (see DEPLOY.md).
+# process, and one worker uses ~890 MB warm (2026-11-17, after
+# slimming; was ~1.2 GB) — do NOT raise --workers on the free/512 MB
+# plans (see DEPLOY.md).
 EXPOSE 8000
 
 # Render injects $PORT; bind 0.0.0.0 so the platform can reach the app.

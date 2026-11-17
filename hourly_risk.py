@@ -83,11 +83,19 @@ comparison. The DAILY bands in risk.py are untouched and remain the
 right unit for "is this a bad day".
 
 Daily predictions come from the SHIPPED Phase 2 model
-(`redunator_brain_v1.joblib`, Random Forest) via `daily_prediction`,
-which reuses `train.py`'s feature list and applies train.py's own
-fill rules (lag/rolling NaN -> 0, lat/lon NaN -> train medians,
-cam_code from the sorted train camera list). The daily model file is
-never modified. Dates with no row in the feature table (camera
+(`redunator_brain_v1`, Random Forest) via `daily_prediction`, which
+delegates to the backend's ONNX service (`backend.model_service` —
+the same session that serves /predict_risk). The ONNX graph was
+exported from the same forest and reproduces its predictions to
+<= 2e-05 (backend/verify_onnx.py), so the hourly anchor and the
+served daily total are now the same number instead of two
+near-equal ones. If the backend package cannot be imported
+(standalone use outside the project), it falls back to scoring
+the joblib file directly with the same feature list and fill rules.
+Either way the rows come from the SERVING table
+(data/processed/red_light_features_serving.parquet — see
+build_serving_parquet.py) and the daily model files are never
+modified. Dates with no row in the feature table (camera
 inactive that day, or a date after 2026-10-29) fall back to the
 camera's pre-test mean, or the citywide pre-test mean (~5.3/day) for
 an unknown camera — flagged in the result.
@@ -113,8 +121,22 @@ import pandas as pd
 import hourly_model as hm
 
 BASE = Path(__file__).resolve().parent
-FEATURES_PATH = BASE / "data" / "processed" / "red_light_features.parquet"
+# Serving table (build_serving_parquet.py): the 19 columns the serving
+# path reads. The full 23-column table stays the training artifact
+# and is never loaded at serving time.
+FEATURES_PATH = BASE / "data" / "processed" / "red_light_features_serving.parquet"
 DAILY_MODEL_PATH = BASE / "redunator_brain_v1.joblib"
+
+# Lever 1 (Render free-tier slimming, 2026-11-17): the daily anchor
+# comes from the backend's ONNX service instead of loading the joblib
+# forest here. In the backend process that removes the second parquet
+# copy AND the ~295 MB joblib load; the ONNX session is shared with
+# /predict_risk. Fallback (joblib) only if the backend package cannot
+# be imported at all.
+try:
+    from backend.model_service import service as _onnx_service
+except Exception:  # noqa: BLE001 - standalone use without the backend
+    _onnx_service = None
 
 # Phase 2 daily bands (REPORT.md §2), kept for the "daily" banding
 # option only. NEVER applied to hourly output by default any more.
@@ -193,11 +215,26 @@ def _load_features() -> pd.DataFrame:
 def daily_prediction(camera_id: str, date) -> tuple[float, str]:
     """Daily predicted violations for one camera-day (shipped RF model).
 
+    Served by the backend's ONNX service (the same session that
+    serves /predict_risk) when it is importable; falls back to the
+    joblib file only if the backend package cannot be imported.
     Returns (prediction, source) where source is "model" (scored from
     the feature-table row), "pre_test_mean" (no row for that
     camera-day: camera inactive or date outside the table), or
     "citywide_mean" (unknown camera). Predictions are clipped at 0,
     matching train.py.
+    """
+    if _onnx_service is not None:
+        return _onnx_service.daily_prediction(str(camera_id), date)
+    return _daily_prediction_joblib(camera_id, date)
+
+
+def _daily_prediction_joblib(camera_id: str, date) -> tuple[float, str]:
+    """Joblib fallback for daily_prediction (same contract).
+
+    Only used when the backend ONNX service cannot be imported.
+    Same feature list and fill rules as the ONNX path; the forest
+    is loaded lazily and cached.
     """
     from train import FEATURES  # reuse the shipped feature list, don't copy it
 

@@ -7,22 +7,27 @@ keys, or services were created for this guide.
 
 ## 0. Read this first — the free tier does NOT fit this backend
 
-Measured on this VM 2026-11-16 (one uvicorn worker, warmed with
+Measured on this VM (one uvicorn worker, warmed with
 `/predict_risk` + `/live/risk` + `/violation_trends`):
 
-| What | Measured |
-|---|---|
-| Warm RSS, whole backend process | **~1.2 GB** |
-| `redunator_brain_v1.joblib` (Random Forest) loaded by `hourly_risk` | ~295 MB |
-| `data/processed/red_light_features.parquet` (1.3M rows) in pandas | ~390 MB |
-| ONNX session (`redunator_brain_v1.onnx`) in `model_service` | ~330 MB |
+| What | 2026-11-16 (before slimming) | 2026-11-17 (after slimming) |
+|---|---|---|
+| Warm RSS, whole backend process | **~1.2 GB** | **~890 MB** |
+| `redunator_brain_v1.joblib` loaded by `hourly_risk` | ~295 MB | 0 — the hourly anchor now comes from the shared ONNX session (lever 1) |
+| Feature parquet in pandas | full table, loaded twice (once per module) | serving-only table, one shared copy: 92 MB DataFrame (lever 2) |
+| ONNX session (`redunator_brain_v1.onnx`) in `model_service` | ~330 MB | ~320 MB — unchanged; the session itself is the floor |
+| App import baseline (no models / data) | — | ~132 MB |
 
-Render's free web instance has **512 MB RAM** and will OOM-kill this
-app (the process holds the joblib forest AND the ONNX session AND the
-full parquet at once). The paid Starter plan is also 512 MB — also
-not enough. The Blueprint therefore uses **`standard` (1 CPU / 2 GB,
-$25/mo at time of writing)**. Render's own docs say of free instances:
-"Do not use them for production applications."
+Slimming (levers 1+2, 2026-11-17) saved ~200–320 MB, but warm RSS
+is still ~890 MB — well above the free tier's 512 MB. The binding
+constraint is the ONNX session itself (~320 MB) on top of a ~132 MB
+import baseline: ~452 MB before ANY data is loaded, leaving ~60 MB
+for the feature table, the hourly-model caches and the XGBoost
+runtime. That is why the free tier still does not fit (see §5 for
+what would be needed). The paid Starter plan is also 512 MB — also
+not enough. The Blueprint therefore still uses **`standard` (1 CPU /
+2 GB, $25/mo at time of writing)**. Render's own docs say of free
+instances: "Do not use them for production applications."
 
 Free-tier limits that matter here (Render docs, re-checked Nov 2026):
 
@@ -152,27 +157,64 @@ Optional — only if he wants them:
   or push the new model files + pointer and let Render auto-deploy).
   Automating that (webhook / scheduled redeploy) is Phase 4 work.
 
-## 5. Getting back to the free tier (future work, NOT done)
+## 5. Getting back to the free tier (levers 1+2 DONE 2026-11-17 — still not enough)
 
-The free tier needs warm RSS under 512 MB; measured is ~1.2 GB.
-The three levers, in order of payoff:
+The free tier needs warm RSS under 512 MB. Levers 1+2 below were
+implemented 2026-11-17 and re-measured the same way as §0 (one
+uvicorn worker, warmed with `/predict_risk` + `/live/risk` +
+`/violation_trends`): warm RSS went from ~1.2 GB to **~890 MB**
+(after-startup 719 MB, after /predict_risk 877 MB, after
+/violation_trends 895 MB; stable across repeat calls, no more
+per-request growth). Predictions are unchanged (cam 1413 /
+2026-10-15 daily 53.0095 ONNX, hourly sums exactly, reconciliation
+0.0; ONNX-vs-joblib max diff 3.4e-06, threshold 2e-05; all 81
+backend tests + both smoke tests pass). **The plan was NOT switched
+to free: 890 MB is ~380 MB over the limit.**
 
-1. **Drop the joblib forest from the serving path (~295 MB).**
-   `hourly_risk.daily_prediction` loads `redunator_brain_v1.joblib`
-   for the daily anchor while `model_service` serves the same model
-   from ONNX. Make the hourly path use the ONNX service and the
-   joblib file stops being loaded.
-2. **Slim the feature parquet (~390 MB).** The serving path uses a
-   handful of columns per row plus `cam_mean_pre_test`; a
-   serving-only parquet with just the needed columns (and/or
-   per-camera lookup instead of the whole 1.3M-row table) would cut
-   this sharply. The full table is only needed for training and for
-   `/violation_trends` (which scans one camera's rows — a per-camera
-   file or a DB query would do).
-3. **Re-measure.** After (1)+(2), re-run the RSS check from the
-   README test section; only switch `render.yaml` to `plan: free`
-   if warm RSS is comfortably under 512 MB with headroom for a
-   traffic burst — and accept the 15-minute spin-down on top.
+1. **DONE — Drop the joblib forest from the serving path.**
+   `hourly_risk.daily_prediction` now delegates to the backend's
+   ONNX service (`backend.model_service.service`) instead of loading
+   `redunator_brain_v1.joblib`; the joblib fallback survives only
+   for standalone use if the backend package cannot be imported
+   (in the backend process sklearn is never imported for the daily
+   model). Verified: no `sklearn` import and no joblib load after a
+   `daily_prediction` call.
+2. **DONE — Slim the feature parquet.** `build_serving_parquet.py`
+   (checked in, reproducible) builds
+   `data/processed/red_light_features_serving.parquet`: 19 columns
+   (lookup keys + the 16 `train.FEATURES` minus derived `cam_code` +
+   `violations` for /violation_trends), lat/lon float64 -> float32,
+   `days_since_first` int32 -> int16. Verified against the full
+   table (row count, cameras, date range, sampled rows incl. cam
+   1413 / 2026-10-15; sha256
+   e998b969abf3aadce730dc14fe26819ec715d5c628d3ae8218fdd1732b718498).
+   The serving table is 92 MB in pandas vs 166 MB for the full
+   table. `backend/config.py` FEATURES_PATH points at it; the full
+   table stays in the repo for training / retraining and is never
+   loaded at serving time. The serving parquet ships in the Docker
+   image (tracked in git, not excluded by .dockerignore).
+3. **What remains — the ONNX session is the floor.** Measured
+   component costs (this VM): app import baseline ~132 MB; ONNX
+   session ~320 MB (150 trees, 782k nodes — arena on/off makes no
+   difference; the cost is the graph itself, not the allocator);
+   serving parquet ~190–270 MB RSS per load (92 MB DataFrame +
+   pyarrow + read temporaries); hourly-model path ~157 MB (XGBoost
+   runtime + weather/crash/congestion caches). Base + session alone
+   is ~452 MB, leaving ~60 MB for all data — so no column-pruning
+   of the parquet can close the gap. Closing it would need a
+   serving rewrite, e.g.: (a) replace the in-memory parquet with
+   per-request SQLite lookups (~180–250 MB saved, pyarrow import
+   included); (b) serve the daily model from the joblib forest
+   instead of ONNX (sklearn import + forest ≈ 257 MB vs ONNX
+   ≈ 339 MB, ~80 MB saved — but it would rework the live-pointer
+   contract and retrain promotion, which are ONNX-based); (c) serve
+   the hourly Poisson model from an ONNX export instead of the
+   XGBoost runtime (removes the xgboost/sklearn import from the
+   warm path). Even (a)+(b)+(c) together land near ~500 MB with no
+   headroom — the free tier is not a comfortable fit for this model
+   stack. Do NOT switch `render.yaml` to `plan: free` until a
+   re-measurement lands comfortably under ~450 MB with headroom
+   for a traffic burst — and accept the 15-minute spin-down on top.
 
 ## 6. Rollback
 

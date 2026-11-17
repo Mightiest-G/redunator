@@ -77,7 +77,7 @@ httpx 0.28.1 pinned there; onnxruntime 1.32.0 was already installed).
   hourly values are returned or implied.
 * `GET /health` — `status`, `model_version` + model filenames +
   metrics from the live pointer, and data freshness: latest violation
-  date (source `data/processed/red_light_features.parquet`) and latest
+  date (source `data/processed/red_light_features_serving.parquet`) and latest
   crash date if the crash file is present (source stated in the
   response). Exempt from rate limiting.
 

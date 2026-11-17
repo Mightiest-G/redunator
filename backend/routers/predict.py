@@ -250,7 +250,9 @@ def _predict_one(req: PredictRequest) -> PredictResponse:
     # Daily total from the served ONNX model (via the live pointer).
     daily, source = service.daily_prediction(cam, day)
 
-    # Hourly split from the shipped hourly API (joblib daily anchor).
+    # Hourly split from the shipped hourly API (ONNX daily anchor —
+    # hourly_risk delegates to this same ONNX service, so the anchor
+    # and the daily total below are the same number).
     try:
         h = hourly_risk.predict_hourly(
             cam, day, method=req.method or "auto",

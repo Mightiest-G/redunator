@@ -11,11 +11,14 @@
 # slimming the repo.
 #
 # WHY PLAN standard, NOT free: measured warm RSS of one uvicorn worker
-# is ~1.2 GB (joblib RF ~295 MB + feature parquet ~390 MB + ONNX
-# session ~330 MB, measured 2026-11-16). The free instance has
-# 512 MB and WILL OOM. Standard (1 CPU / 2 GB, $25/mo at time of
-# writing) fits. Dropping to free needs the slimming work listed in
-# DEPLOY.md § "Getting back to the free tier" — it is NOT done yet.
+# is ~890 MB after the 2026-11-17 slimming (was ~1.2 GB: the hourly
+# path now uses the shared ONNX session instead of the joblib forest,
+# and the serving path reads a 19-column serving parquet). The free
+# instance has 512 MB and WILL still OOM — the ONNX session alone is
+# ~320 MB on a ~132 MB import baseline. Standard (1 CPU / 2 GB,
+# $25/mo at time of writing) fits. See DEPLOY.md §5 for what would
+# be needed to reach the free tier; do NOT switch this to free on
+# the basis of the slimming alone.
 #
 # No database is declared here on purpose: the default SQLite store
 # keeps user reports/alerts in data/redunator.db, which is EPHEMERAL

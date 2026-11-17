@@ -15,7 +15,7 @@ def test_health_ok(client):
     # Data freshness: the violation feature table ends 2026-10-29.
     assert body["data_freshness"]["latest_violation_date"] == "2026-10-29"
     assert body["data_freshness"]["latest_violation_source"] == (
-        "data/processed/red_light_features.parquet")
+        "data/processed/red_light_features_serving.parquet")
 
 
 def test_health_exempt_from_rate_limit(client):

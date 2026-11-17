@@ -188,7 +188,7 @@ def create_app() -> FastAPI:
             "data_freshness": {
                 "latest_violation_date": service.latest_violation_date,
                 "latest_violation_source":
-                    "data/processed/red_light_features.parquet",
+                    "data/processed/red_light_features_serving.parquet",
                 "latest_crash_date": crash_date,
                 "latest_crash_source": crash_source,
             },

@@ -1,9 +1,9 @@
 {
   "camera_id": "1413",
   "date": "2026-10-15",
-  "daily_prediction": 53.009553452442816,
+  "daily_prediction": 53.009544372558594,
   "method": "model",
-  "hourly_sum": 53.0096,
+  "hourly_sum": 53.0095,
   "peak_hour": 15,
   "peak_value": 4.82,
   "bands_hourly": {

@@ -21,7 +21,10 @@ LIVE_MODEL_PATH = Path(os.environ.get(
     "REDUNATOR_LIVE_MODEL", str(PROJECT_ROOT / "live_model.json")))
 
 # --- Data files --------------------------------------------------------------
-FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "red_light_features.parquet"
+# Serving table (build_serving_parquet.py): the 19 columns the serving
+# path reads. The full 23-column table is the training artifact and is
+# never loaded at serving time.
+FEATURES_PATH = PROJECT_ROOT / "data" / "processed" / "red_light_features_serving.parquet"
 PROFILES_PATH = PROJECT_ROOT / "data" / "processed" / "camera_profiles.csv"
 SEGMENT_MAP_PATH = (PROJECT_ROOT / "data" / "hourly" / "processed"
                     / "camera_segment_map.csv")

@@ -7,8 +7,10 @@ pointer, never hardcoded. The pointer file is re-read on every call
 so a monthly retrain promotion takes effect without a restart and
 without ever caching a version forever.
 
-Feature vectors are built from `data/processed/red_light_features.parquet`
-exactly as `hourly_risk.daily_prediction` does, reusing `train.FEATURES`
+Feature vectors are built from the serving table
+(`data/processed/red_light_features_serving.parquet` — see
+`build_serving_parquet.py`) exactly as `hourly_risk.daily_prediction`
+does, reusing `train.FEATURES`
 and train.py's fill rules (lag_1d / roll_mean_7d / roll_mean_30d NaN -> 0.0;
 lat/lon NaN -> train medians; cam_code from the sorted train camera list,
 median code for an unknown camera). When there is no feature row for the
