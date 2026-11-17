@@ -3,8 +3,9 @@
 
 Calls the no-key providers live, prints each result (source,
 fetched_at, as_of, values, stale), asserts the no-key providers
-succeed, and asserts the key-ready providers fail cleanly with
-the "API key required" error when no env vars are set.
+succeed, and asserts the key-ready providers either fail cleanly
+with the "API key required" error (no key set) or succeed live
+with sane values (key set in the environment).
 
 TomTom is the exception: when TOMTOM_API_KEY is not set, the
 provider falls back to the custom.tomtom connector
@@ -78,10 +79,13 @@ def main() -> int:
     if occ is None or not (0.0 <= occ <= 1.0):
         failures.append(f"divvy-gbfs: bad bike_occupancy: {occ}")
 
-    # --- 2. Key-ready providers must fail cleanly with no env vars set.
-    #     TomTom is exempt: without TOMTOM_API_KEY it falls back to the
-    #     custom.tomtom connector, so it may succeed live on this VM.
-    print("\n== key-ready providers (no keys set) ==")
+    # --- 2. Key-ready providers: without a key they must fail cleanly
+    #     with "API key required" naming the env var + signup URL;
+    #     with a key set they must succeed live with sane values.
+    #     TomTom is special in the no-key case: without TOMTOM_API_KEY
+    #     it falls back to the custom.tomtom connector, so it may
+    #     succeed live on this VM even with no env var.
+    print("\n== key-ready providers (key set = live, unset = clean error) ==")
     for var in ("TOMTOM_API_KEY", "HERE_API_KEY", "CTA_BUS_API_KEY"):
         if var in os.environ:
             print(f"  NOTE: {var} is set in this environment — "
@@ -112,22 +116,33 @@ def main() -> int:
                 failures.append(
                     f"{name}: error does not name signup URL")
             continue
+        # Live success (key set, or tomtom connector fallback):
+        # validate values per provider.
+        print(f"--- {name} ---")
+        print(f"  live success: {json.dumps(r.values)}")
+        if r.error is not None:
+            failures.append(f"{name}: unexpected error: {r.error}")
+        if r.stale:
+            failures.append(f"{name}: unexpectedly stale on a live fetch")
+        if not r.values:
+            failures.append(f"{name}: empty values on live fetch")
         if name == "tomtom-flow":
-            # Live success via the connector fallback: validate values.
-            print(f"--- {name} ---")
-            print(f"  live via connector fallback: {json.dumps(r.values)}")
-            if r.error is not None:
-                failures.append(f"{name}: unexpected error: {r.error}")
-            if r.stale:
-                failures.append(f"{name}: unexpectedly stale on a live fetch")
             if r.values.get("current_speed_mph") is None:
                 failures.append(f"{name}: no current_speed_mph on live fetch")
             if r.values.get("confidence") is None:
                 failures.append(f"{name}: no confidence on live fetch")
-            continue
-        failures.append(
-            f"{name}: expected LiveSignalError with no key, got result: "
-            f"{r.to_dict()}")
+        elif name == "here-flow":
+            if not r.values.get("segments"):
+                failures.append(f"{name}: no segments on live fetch")
+            if r.values.get("avg_speed_mph") is None:
+                failures.append(f"{name}: no avg_speed_mph on live fetch")
+        elif name == "cta-bus":
+            if r.values.get("vehicles_active") is None:
+                failures.append(f"{name}: no vehicles_active on live fetch")
+            if r.values.get("routes_sampled") != 10:
+                failures.append(
+                    f"{name}: expected 10 routes sampled, got "
+                    f"{r.values.get('routes_sampled')}")
 
     # --- 3. collect_live_signals() over ALL providers never raises,
     #     and records the key errors instead of failing.
@@ -137,26 +152,21 @@ def main() -> int:
         print(f"  {name}: stale={r.stale} error={r.error!r}")
     for name in KEY_READY:
         r = all_results[name]
-        if name == "tomtom-flow":
-            # Either live success via the connector fallback (error
-            # None, fresh) or a clean key/connector error (stale).
-            if r.error is None:
-                if r.stale or not r.values:
-                    failures.append(
-                        "collect: tomtom-flow live result must be fresh "
-                        "with values")
-            elif ("API key required" not in r.error
-                    and "connector unavailable" not in r.error):
+        if r.error is None:
+            # Live success (key set, or tomtom connector fallback):
+            # must be fresh with values.
+            if r.stale or not r.values:
                 failures.append(
-                    f"collect: tomtom-flow wrong error, got {r.error!r}")
-            elif not r.stale:
-                failures.append(
-                    "collect: tomtom-flow error result must be stale")
+                    f"collect: {name} live result must be fresh "
+                    "with values")
             continue
-        if r.error is None or "API key required" not in r.error:
+        # Clean error path: "API key required" (tomtom may instead
+        # report "connector unavailable"), and the result must be stale.
+        if ("API key required" not in r.error
+                and not (name == "tomtom-flow"
+                         and "connector unavailable" in r.error)):
             failures.append(
-                f"collect: {name} should carry an 'API key required' "
-                f"error, got {r.error!r}")
+                f"collect: {name} wrong error, got {r.error!r}")
         if not r.stale:
             failures.append(f"collect: {name} error result must be stale")
 

@@ -78,7 +78,7 @@ Optional — only if he wants them:
 
 - [x] **TomTom API key** (`TOMTOM_API_KEY`) — DONE 2026-11-16: key "Redunator" (Evaluation plan, 2,500/day free) is held in the custom.tomtom connector and verified live; Redunator's TomTom provider falls back to the connector when the env var is unset (see live_signals.py). For production on Render, still set `TOMTOM_API_KEY` as an env var there — the connector only works on this VM.
 - [x] **HERE API key** (`HERE_API_KEY`) — DONE 2026-11-16: app "Redunator", free Base plan, key verified live via the here-flow provider (272 flow segments). Set in local `redunator/.env` (gitignored from Docker via `.dockerignore`); still needs setting as an env var on Render for production.
-- [ ] **CTA Bus Tracker API key** (`CTA_BUS_API_KEY`) — Sign up at transitchicago.com / CTA Bus Tracker developer page.
+- [x] **CTA Bus Tracker API key** (`CTA_BUS_API_KEY`) — DONE 2026-11-17: free BusTime key issued for gabriel3dragon@gmail.com (account activated via the email link; the activation emails landed in Gmail Spam). Key is wired into local `.env` and VERIFIED LIVE (40 vehicles on 10 sampled routes at ~02:00 CST). Set it as a Render env var for production. Provider notes: getvehicles REQUIRES an `rt` (or `vid`) parameter, and returns NO speed field — the provider samples 10 high-frequency routes and reports the live vehicle count (an activity signal, not a speed); it also tolerates the API's mixed vehicle+error responses at quiet hours.
 - [ ] **Apple Developer account** ($99/yr) — only later, for the iOS app (Phase 4). Not needed for the backend.
 - [ ] **OpenWeatherMap key** — NOT needed: Open-Meteo is the default
       weather provider and needs no key. If he ever wants to swap

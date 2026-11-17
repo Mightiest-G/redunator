@@ -638,13 +638,23 @@ class CtaBusProvider(_ApiKeyProvider):
     transit-activity signal and a rough congestion proxy (bus speeds
     fall when streets jam). Endpoint used here:
     ``http://www.ctabustracker.com/bustime/api/v2/getvehicles``
-    with ``key=<key>&format=json`` (no route filter: the full active
-    fleet; callers that need one corridor should pass ``rt``).
-    ``spd`` is already mph in the BusTime API. Max age: 5 minutes.
+    with ``key=<key>&format=json``. The API REQUIRES a route (``rt``)
+    or vehicle (``vid``) parameter — a bare call is rejected with
+    "Either rt or vid parameter must be specified" (verified live
+    2026-11-17 with a valid key). So this provider samples 10
+    high-frequency routes (``rt`` accepts up to 10, comma-separated)
+    and counts their active vehicles: 4 Cottage Grove, 9 Ashland, 12
+    Roosevelt, 22 Clark, 49 Western, 55 Garfield, 66 Chicago, 79 79th,
+    151 Sheridan, 156 LaSalle. Max age: 5 minutes. NOTE (corrected
+    2026-11-17): getvehicles returns NO speed field, so the signal is
+    the live vehicle count on the sampled routes, not an average
+    speed — the earlier "`spd` is already mph" claim was wrong.
 
     Key-gating verified live 2026-11-16 (no key): HTTP 200 with
     ``{"bustime-response": {"error": [{"msg": "Invalid API access key
-    supplied"}]}}``.
+    supplied"}]}}``. Key verified live 2026-11-17 (key issued that
+    night): a valid key gets past auth and the endpoint enforces
+    the rt/vid rule instead.
     """
 
     name = "cta-bus"
@@ -652,26 +662,36 @@ class CtaBusProvider(_ApiKeyProvider):
     env_var = "CTA_BUS_API_KEY"
     signup_url = "https://www.ctabustracker.com/bustime/login.jsp"
     free_tier_note = "free; request API access on the BusTime site (no published quota)"
+    # getvehicles requires rt or vid; sample 10 high-frequency routes.
+    ROUTES = "4,9,12,22,49,55,66,79,151,156"
 
     def _fetch(self, now: datetime) -> LiveSignal:
         key = self._require_key()
         data = self._get(
             "http://www.ctabustracker.com/bustime/api/v2/getvehicles",
-            params={"key": key, "format": "json"})
+            params={"key": key, "format": "json", "rt": self.ROUTES})
         resp = data.get("bustime-response") or {}
-        if "error" in resp:
+        # The API returns a MIXED response at quiet hours: "vehicle"
+        # entries for routes with buses running AND "error" entries
+        # ("No data found for parameter") for routes with none. An
+        # error entry is only fatal when no vehicles came back at all
+        # (that is also how a bad key surfaces: "Invalid API access
+        # key supplied" with zero vehicles).
+        vehicles = resp.get("vehicle") or []
+        if not vehicles and "error" in resp:
             msgs = "; ".join(e.get("msg", "") for e in resp["error"])
             raise LiveSignalError(f"{self.name}: CTA API error: {msgs}")
-        vehicles = resp.get("vehicle") or []
-        speeds = [float(v["spd"]) for v in vehicles
-                  if v.get("spd") not in (None, "")]
+        # NOTE: getvehicles returns NO speed field — the earlier
+        # "spd is already mph" claim was wrong (spd appears only in
+        # getpredictions, which needs stop discovery). The signal is
+        # therefore the live bus count on the sampled routes (an
+        # activity signal), not a speed. It is collected and reported,
+        # not consumed by the live adjustment.
         return LiveSignal(
             source=self.name, fetched_at=now, as_of=now,
             values={
                 "vehicles_active": len(vehicles),
-                "vehicles_with_speed": len(speeds),
-                "avg_speed_mph": (round(sum(speeds) / len(speeds), 2)
-                                  if speeds else None),
+                "routes_sampled": len(self.ROUTES.split(",")),
             },
         )
 
