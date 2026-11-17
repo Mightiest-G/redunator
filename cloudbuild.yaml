@@ -1,0 +1,15 @@
+# Cloud Build config for the Cloud Run deploy (see backend/DEPLOY.md).
+# Build from the REPO ROOT: the Dockerfile is backend/Dockerfile and the
+# image needs the model files + processed data at the root.
+# Build with: gcloud builds submit --config cloudbuild.yaml --region=us-central1 .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:$SHORT_SHA'
+      - '-f'
+      - 'backend/Dockerfile'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:$SHORT_SHA'

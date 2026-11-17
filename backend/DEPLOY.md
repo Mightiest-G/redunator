@@ -225,3 +225,46 @@ deploy shipped — including the `live_model.json` pointer as of that
 commit. If a retrain promotion needs undoing, move the pointer back
 to `redunator_brain_v1.*` and redeploy (v1 files are never
 overwritten).
+
+## 7. Cloud Run deploy — LIVE 2026-11-17 ~09:22 CST (supersedes Render)
+
+Render was dropped: even after the 2026-11-17 slimming (warm RSS
+1.2 GB → ~890 MB), the backend cannot fit Render's 512 MB free tier
+(ONNX session alone ~320 MB), and Render standard is $25/mo. Cloud
+Run's free tier fits the usage instead (scale to zero; ~50 h/month
+of 2 GiB runtime free, then ~$0.10/active-hour; the $10 budget alert
+on "My Billing Account 2" guards it).
+
+- **Service URL:** https://redunator-api-108691448805.us-central1.run.app
+- **Project:** `redunator` (pimjpmaster@gmail.com), region `us-central1`
+- **Image:** `us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:259c8cd`
+  (built by Cloud Build from the repo root, `-f backend/Dockerfile`;
+  build config is `cloudbuild.yaml` at the repo root)
+- **Settings:** memory 2Gi, cpu 1, min-instances 0, max-instances 2,
+  `--allow-unauthenticated`, `--port 8000`. The Dockerfile already
+  binds `$PORT` (`REDUNATOR_PORT=${PORT:-8000}`), so no code change
+  was needed for Cloud Run.
+- **Env vars on the service:** `HERE_API_KEY`, `CTA_BUS_API_KEY`,
+  `TOMTOM_API_KEY` (all three set; TomTom was added by a second
+  deploy after Gabriel supplied the key — it is NOT stored in the
+  repo or in memory).
+- **Verified live 2026-11-17 ~09:25 CST (independent curls):**
+  `/health` ok, model_version 1, MAE 2.145 / RMSE 3.307, latest
+  violation data 2026-10-29; `/predict_risk` cam 1413 2026-10-15 =
+  53.0095 HIGH, reconciliation 0.0; `/live/risk` cam 3041 HIGH,
+  daily 10.3; `/docs` lists all routes.
+- **Cold start is real:** the first request after idle can take
+  ~30 s while the model loads, and one first-attempt `/predict_risk`
+  call timed out at 120 s during warm-up; the retry answered in
+  ~4 s once warm. The Flutter app should tolerate a slow first call.
+- **Portability:** the service is a plain Docker image built from
+  the GitHub repo, so it can move to another host (Oracle, Render)
+  later by rebuilding the same image there — no Cloud Run-specific
+  code. A move needs the new host's URL put into the Flutter app
+  and the three API keys re-entered there. User data in SQLite is
+  ephemeral on Cloud Run (same as Render free) and would not carry
+  over a move unless it is on Postgres first.
+- **Redeploy after a retrain promotion:** rebuild + redeploy the
+  image (same commands as §7 above, new tag), or push the new model
+  files and let a fresh build pick them up. The image is a snapshot;
+  the live service does not pick up repo changes by itself.
