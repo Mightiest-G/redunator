@@ -5,27 +5,26 @@ alerts, feedback, per-user settings. All persistence goes through
 ``backend.storage.Store`` — one interface, SQLite by default,
 PostgreSQL when ``DATABASE_URL`` is set.
 
-Identity & auth (Phase 3 choice — see backend/README.md)
----------------------------------------------------------
-* The user is identified by the ``X-User-Id`` header, falling back
-  to a ``user_id`` field in the JSON body, falling back to
-  ``"anonymous"``. There is no account system in this phase.
-* No auth in local dev by default. If the ``REDUNATOR_API_KEY``
-  env var is set, every endpoint here requires the matching
-  ``X-Api-Key`` header (401 otherwise). Production MUST replace
-  this with JWT auth before any public deployment (per the SDD);
-  this header-key check is a local-dev gate only, not a user auth
-  system.
+Identity & auth (device JWTs, added 2026-11-18 — see backend/auth.py)
+----------------------------------------------------------------------
+The app has no user accounts. Identity is a device-scoped JWT: the
+app mints one at ``POST /auth/device`` (``{"device_id": "<uuid>"}``)
+and sends ``Authorization: Bearer <token>`` on every endpoint here.
+The token's ``sub`` claim IS the user id. The old ``X-User-Id``
+header (and ``user_id`` body field) were spoofable by anyone and
+are no longer read for identity at all; the old ``X-Api-Key``
+local-dev gate is gone with them. Missing / invalid / expired
+token -> 401 ``{"error": "unauthorized", ...}``.
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
-from fastapi import APIRouter, Body, Header, Query
+from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import JSONResponse
 
+from ..auth import require_device
 from ..storage import get_store
 
 router = APIRouter()
@@ -43,23 +42,6 @@ BANDS = ("LOW", "MEDIUM", "HIGH")
 def _err(status: int, error: str, message: str):
     return JSONResponse(status_code=status,
                         content={"error": error, "message": message})
-
-
-def _require_api_key(x_api_key: str | None):
-    """Local-dev gate: enforced only when REDUNATOR_API_KEY is set."""
-    expected = os.environ.get("REDUNATOR_API_KEY", "")
-    if expected and x_api_key != expected:
-        return _err(401, "unauthorized",
-                    "Missing or incorrect X-Api-Key header.")
-    return None
-
-
-def _user_id(x_user_id: str | None, body: dict) -> str:
-    if x_user_id:
-        return str(x_user_id)
-    if body.get("user_id"):
-        return str(body["user_id"])
-    return "anonymous"
 
 
 def _parse_lat_lon(body: dict):
@@ -95,11 +77,7 @@ def _parse_timestamp(raw):
 # ------------------------------------------------------------------
 @router.post("/user_report", status_code=201)
 def create_user_report(payload: dict = Body(...),
-                       x_user_id: str | None = Header(None, alias="X-User-Id"),
-                       x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
+                       device_id: str = Depends(require_device)):
     camera_id = payload.get("camera_id")
     if camera_id is not None:
         camera_id = str(camera_id).strip() or None
@@ -117,19 +95,18 @@ def create_user_report(payload: dict = Body(...),
     if note is not None:
         note = str(note)
     rec = get_store().create_report(
-        user_id=_user_id(x_user_id, payload), camera_id=camera_id,
+        user_id=device_id, camera_id=camera_id,
         latitude=lat, longitude=lon, reported_at=reported_at, note=note)
     return JSONResponse(status_code=201, content=rec)
 
 
 @router.get("/user_report/{report_id}")
 def get_user_report(report_id: int,
-                    x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
+                    device_id: str = Depends(require_device)):
     rec = get_store().get_report(report_id)
-    if rec is None:
+    if rec is None or str(rec.get("user_id")) != device_id:
+        # 404 either way: do not reveal whether another device's
+        # report exists.
         return _err(404, "not_found", f"No report with id {report_id}.")
     return rec
 
@@ -139,25 +116,15 @@ def get_user_report(report_id: int,
 # ------------------------------------------------------------------
 @router.get("/user_alerts")
 def list_user_alerts(
-        user_id: str | None = Query(None),
         active_only: bool = Query(True),
-        x_user_id: str | None = Header(None, alias="X-User-Id"),
-        x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
-    uid = x_user_id or user_id or "anonymous"
-    alerts = get_store().list_alerts(str(uid), active_only=active_only)
-    return {"user_id": str(uid), "alerts": alerts}
+        device_id: str = Depends(require_device)):
+    alerts = get_store().list_alerts(device_id, active_only=active_only)
+    return {"user_id": device_id, "alerts": alerts}
 
 
 @router.post("/user_alerts", status_code=201)
 def create_user_alert(payload: dict = Body(...),
-                      x_user_id: str | None = Header(None, alias="X-User-Id"),
-                      x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
+                      device_id: str = Depends(require_device)):
     lat, lon, err = _parse_lat_lon(payload)
     if err:
         return _err(400, "invalid_parameters", err)
@@ -189,7 +156,7 @@ def create_user_alert(payload: dict = Body(...),
                         "threshold_value must be >= 0.")
     name = payload.get("name")
     rec = get_store().create_alert(
-        user_id=_user_id(x_user_id, payload), latitude=lat, longitude=lon,
+        user_id=device_id, latitude=lat, longitude=lon,
         radius_m=radius_m, threshold=threshold,
         threshold_value=threshold_value,
         name=str(name) if name is not None else None)
@@ -202,12 +169,8 @@ def create_user_alert(payload: dict = Body(...),
 
 @router.delete("/user_alerts/{alert_id}")
 def delete_user_alert(alert_id: int,
-                      x_user_id: str | None = Header(None, alias="X-User-Id"),
-                      x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
-    rec = get_store().deactivate_alert(alert_id, x_user_id or "anonymous")
+                      device_id: str = Depends(require_device)):
+    rec = get_store().deactivate_alert(alert_id, device_id)
     if rec is None:
         return _err(404, "not_found",
                     f"No alert with id {alert_id} for this user.")
@@ -220,11 +183,7 @@ def delete_user_alert(alert_id: int,
 # ------------------------------------------------------------------
 @router.post("/user_feedback", status_code=201)
 def create_user_feedback(payload: dict = Body(...),
-                         x_user_id: str | None = Header(None, alias="X-User-Id"),
-                         x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
+                         device_id: str = Depends(require_device)):
     text = payload.get("text", payload.get("message"))
     if text is None or not str(text).strip():
         return _err(400, "invalid_parameters",
@@ -241,7 +200,7 @@ def create_user_feedback(payload: dict = Body(...),
                         f"rating must be 1..5, got {rating}")
     category = payload.get("category")
     rec = get_store().create_feedback(
-        user_id=_user_id(x_user_id, payload), text=str(text),
+        user_id=device_id, text=str(text),
         rating=rating,
         category=str(category) if category is not None else None)
     return JSONResponse(status_code=201, content=rec)
@@ -252,14 +211,8 @@ def create_user_feedback(payload: dict = Body(...),
 # ------------------------------------------------------------------
 @router.get("/user_settings")
 def get_user_settings(
-        user_id: str | None = Query(None),
-        x_user_id: str | None = Header(None, alias="X-User-Id"),
-        x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
-    uid = str(x_user_id or user_id or "anonymous")
-    stored = get_store().get_settings(uid)
+        device_id: str = Depends(require_device)):
+    stored = get_store().get_settings(device_id)
     merged = dict(DEFAULT_SETTINGS)
     merged.update(stored)
     if isinstance(merged.get("notifications"), dict) and \
@@ -267,16 +220,12 @@ def get_user_settings(
         notes = dict(DEFAULT_SETTINGS["notifications"])
         notes.update(merged["notifications"])
         merged["notifications"] = notes
-    return {"user_id": uid, "settings": merged}
+    return {"user_id": device_id, "settings": merged}
 
 
 @router.post("/user_settings")
 def set_user_settings(payload: dict = Body(...),
-                      x_user_id: str | None = Header(None, alias="X-User-Id"),
-                      x_api_key: str | None = Header(None, alias="X-Api-Key")):
-    gate = _require_api_key(x_api_key)
-    if gate is not None:
-        return gate
+                      device_id: str = Depends(require_device)):
     settings = payload.get("settings")
     if settings is None:
         settings = {k: v for k, v in payload.items() if k != "user_id"}
@@ -298,7 +247,7 @@ def set_user_settings(payload: dict = Body(...),
         except (TypeError, ValueError):
             return _err(400, "invalid_parameters",
                         "alert_radius_m must be a number.")
-    uid = _user_id(x_user_id, payload)
+    uid = device_id
     stored = get_store().set_settings(uid, settings)
     merged = dict(DEFAULT_SETTINGS)
     merged.update(stored)

@@ -115,8 +115,10 @@ values are rescaled to the ONNX daily so the API is internally exact.
 `/docs` loads (OpenAPI parses, 12 paths incl. Worker B's routers).
 Rate limiting demonstrated with `REDUNATOR_RATE_LIMIT_PER_MIN=5`:
 5×200 then 429 `{"error":"rate_limited",...}`; `/health` still 200.
-CORS preflight from `http://localhost:3000` returns
-`access-control-allow-origin: http://localhost:3000`.
+CORS preflight from `http://localhost:3000` returned
+`access-control-allow-origin: http://localhost:3000` — that was
+the old default; since 2026-11-18 the default allow-list is empty
+(deny) and the preflight gets no CORS header back.
 
 ## Honest limits
 
@@ -193,16 +195,20 @@ imported, not re-implemented.
 
 ## User endpoints
 
-Identity: the `X-User-Id` header, else a `user_id` field in the
-JSON body, else `"anonymous"`. There is no account system in this
-phase.
-
-Auth: **no auth in local dev by default.** If the
-`REDUNATOR_API_KEY` env var is set, every user endpoint requires
-the matching `X-Api-Key` header (401 otherwise). That is a
-local-dev gate only — **production MUST use JWT auth before any
-public deployment** (per the SDD). No full auth system is built
-here, and no accounts, keys, or paid services were created.
+Identity: a device-scoped JWT (added 2026-11-18, see
+`backend/auth.py`). The app generates a UUID `device_id` once,
+mints a token at `POST /auth/device`
+(`{"device_id": "<uuid>"}` → `{"access_token", "token_type":
+"bearer", "expires_in": 2592000}`), and sends
+`Authorization: Bearer <token>` on every endpoint here. The
+token's `sub` claim IS the user id. The old `X-User-Id` header
+and `user_id` body field are ignored for identity, and the old
+`X-Api-Key` local-dev gate is removed. Missing / invalid /
+expired token → 401 `{"error": "unauthorized", ...}`. Without
+`REDUNATOR_JWT_SECRET` set on the server, `POST /auth/device`
+answers 503 (`jwt_secret_not_configured`) and the user endpoints
+fail closed (401). See `backend/API_REFERENCE.md` for the full
+contract.
 
 * `POST /user_report` — "Report Spike". Body: `camera_id` and/or
   `lat`+`lon` (at least one location form required), optional
@@ -234,12 +240,16 @@ here, and no accounts, keys, or paid services were created.
   One short-lived connection per operation — safe under FastAPI's
   threaded sync endpoints and multi-worker uvicorn without a pool.
 * PostgreSQL: set `DATABASE_URL` to a `postgresql://` /
-  `postgres://` URL. Requires `psycopg` (v3) or `psycopg2` — neither
-  is installed by default, and the code raises a clear error naming
-  the missing package instead of failing obscurely. The local run
-  works with zero config when the var is unset. PostGIS is not
-  needed yet (locations are plain lat/lon columns); a PostGIS
-  migration is a schema change for a later phase, not a code change.
+  `postgres://` URL. Requires `psycopg` (v3) or `psycopg2` —
+  `psycopg[binary]` is in `requirements.txt` and installed; the
+  code raises a clear error naming the missing package if neither
+  can be imported. The local run works with zero config when the
+  var is unset. PostGIS is not needed yet (locations are plain
+  lat/lon columns); a PostGIS migration is a schema change for a
+  later phase, not a code change. **Live round-trip still
+  untested** (no Postgres server on this VM): the Postgres path
+  is verified only up to mocked-connection SQL tests — see
+  `backend/tests/test_postgres_path.py`.
 * No Redis dependency in this phase. The only cache is the
   in-memory TTL cache inside `live_signals.py` (15 min,
   per-process). **Redis swap-in point:** replace the `_CACHE` dict
@@ -315,7 +325,9 @@ Key facts about the suite:
 * **Temp DB**: `conftest.py` points `REDUNATOR_DB_PATH` at a
   throwaway file under `/tmp/redunator-tests/` before the app is
   imported, so tests never touch the real `data/redunator.db`.
-  Each test uses a fresh `X-User-Id`.
+  Each test uses a fresh device id + JWT (`auth_headers` fixture).
+* **JWT secret**: `conftest.py` sets `REDUNATOR_JWT_SECRET` to a
+  fixed test-only value before the app is imported.
 * **Rate limiter**: the in-process limiter is raised for the suite
   (the suite makes more requests than the 100/min default); the real
   limit is exercised by the subprocess test above.
@@ -323,7 +335,9 @@ Key facts about the suite:
   (`psycopg[binary]` 3.3.9, pinned in `requirements.txt`) is
   installed, the URL parsing + connection attempt is exercised to a
   fast connection-refused, and the missing-driver error is tested.
-  A live Postgres round-trip is **explicitly untested**.
+  The Postgres SQL spellings are exercised against a fake
+  connection (`backend/tests/test_postgres_path.py`). A live
+  Postgres round-trip is **explicitly untested**.
 
 ## Endpoint cookbook (copy-paste against `http://127.0.0.1:8000`)
 
@@ -364,23 +378,39 @@ curl 'http://127.0.0.1:8000/live/risk?lat=41.8781&lon=-87.6298&at=2026-11-16T05:
 # -> camera 3041, MICHIGAN AND JACKSON, 443 m, hour 05:00 0.038 LOW,
 #    daily 10.3 pre_test_mean, adjustment_applied false
 
-# User endpoints (X-User-Id header, else user_id in body, else "anonymous")
+# User endpoints (device JWT: mint one first, then pass it as
+# Authorization: Bearer <token> on every call)
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/device \
+  -H 'Content-Type: application/json' \
+  -d '{"device_id":"11111111-2222-4333-8444-555555555555"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
 curl -X POST http://127.0.0.1:8000/user_report \
-  -H 'Content-Type: application/json' -H 'X-User-Id: gabriel' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"camera_id":"1413","note":"spike at lunch"}'
-curl http://127.0.0.1:8000/user_report/1
+curl http://127.0.0.1:8000/user_report/1 -H "Authorization: Bearer $TOKEN"
 curl -X POST http://127.0.0.1:8000/user_alerts \
-  -H 'Content-Type: application/json' -H 'X-User-Id: gabriel' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"lat":41.8781,"lon":-87.6298,"radius_m":1500,"threshold":"HIGH","name":"Loop"}'
-curl http://127.0.0.1:8000/user_alerts -H 'X-User-Id: gabriel'
-curl -X DELETE http://127.0.0.1:8000/user_alerts/1 -H 'X-User-Id: gabriel'
+curl http://127.0.0.1:8000/user_alerts -H "Authorization: Bearer $TOKEN"
+curl -X DELETE http://127.0.0.1:8000/user_alerts/1 -H "Authorization: Bearer $TOKEN"
 curl -X POST http://127.0.0.1:8000/user_feedback \
-  -H 'Content-Type: application/json' -H 'X-User-Id: gabriel' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"text":"Prediction felt right today","rating":5}'
-curl http://127.0.0.1:8000/user_settings -H 'X-User-Id: gabriel'
+curl http://127.0.0.1:8000/user_settings -H "Authorization: Bearer $TOKEN"
 curl -X POST http://127.0.0.1:8000/user_settings \
-  -H 'Content-Type: application/json' -H 'X-User-Id: gabriel' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"units":"imperial","risk_threshold":"HIGH"}'
+# Subscription verification (same Bearer token; without a Google
+# service account configured it answers {"valid": null, "reason":
+# "play_verification_not_configured"})
+curl -X POST http://127.0.0.1:8000/subscriptions/verify \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"product_id":"pro_monthly","purchase_token":"<from Play Billing>","device_id":"11111111-2222-4333-8444-555555555555"}'
 
 # OpenAPI
 curl http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -n 20
@@ -394,11 +424,12 @@ curl http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -n 20
 | `REDUNATOR_LIVE_MODEL` | `<root>/live_model.json` | Model pointer path. Filenames + version are resolved through it; re-read per request (mtime check). For tests, point it at a COPY. |
 | `REDUNATOR_MAX_NEAREST_M` | `2000` | Max distance (m) for a lat/lon-only request to resolve to a camera; beyond it → 404 `no_camera_nearby`. |
 | `REDUNATOR_RATE_LIMIT_PER_MIN` | `100` | Requests/minute per client IP, in-memory, sliding window. `/health`, `/docs`, `/openapi.json`, `/redoc` exempt. |
-| `REDUNATOR_CORS_ORIGINS` | localhost dev list (see `config.py`) | Comma-separated allowed origins. Set to the real app origin(s) in production. |
+| `REDUNATOR_CORS_ORIGINS` | (empty = deny) | Comma-separated allowed origins. Default denies all browser cross-origin requests (native app only). |
+| `REDUNATOR_JWT_SECRET` | (unset → user endpoints fail closed) | HS256 secret for device JWTs. Long random value (32+ bytes); never commit it. |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | (unset → verify returns `valid: null`) | Filesystem path to a Google Play service-account JSON file for `POST /subscriptions/verify`. |
 | `REDUNATOR_HOST` / `REDUNATOR_PORT` | `127.0.0.1` / `8000` | Bind host/port for `python -m backend.app`. Render sets `PORT`; the Dockerfile binds `0.0.0.0:$PORT`. |
 | `REDUNATOR_DB_PATH` | `<root>/data/redunator.db` | SQLite file for the user store. Tests point it at `/tmp`. |
 | `DATABASE_URL` | (unset → SQLite) | `postgresql://…` / `postgres://…` switches the user store to Postgres (needs `psycopg`, installed). PostGIS not needed. |
-| `REDUNATOR_API_KEY` | (unset → open) | If set, every user endpoint requires the matching `X-Api-Key` header (401 otherwise). Local-dev gate only — JWT auth is required before any public deployment. |
 | `TOMTOM_API_KEY` / `HERE_API_KEY` / `CTA_BUS_API_KEY` | (unset) | Key-gated live providers for `/live/risk`. Unset = gracefully dropped, listed in `signals_dropped_stale`. Open-Meteo + Divvy need no key. |
 
 ## Model pointer — how it works
@@ -416,12 +447,17 @@ it; tests use a copy.
 
 ## Auth
 
-No auth in local dev by default. `REDUNATOR_API_KEY` gates the user
-endpoints behind a shared-secret header when set. That is a
-local-dev gate, **not** user auth: identity is still just the
-`X-User-Id` header, which anyone can set. **Production MUST use JWT
-auth before any public deployment** (per the SDD). No accounts,
-keys, or paid services were created in Phase 3.
+Device-scoped JWTs (added 2026-11-18, see `backend/auth.py` and
+`backend/API_REFERENCE.md`). The app mints a token at
+`POST /auth/device` with its UUID device id and sends it as
+`Authorization: Bearer <token>` on every user endpoint; the
+token's `sub` claim is the user id. No accounts exist. The old
+`X-User-Id` header and `X-Api-Key` gate are removed. The signing
+secret is `REDUNATOR_JWT_SECRET`; without it the backend fails
+closed. `POST /subscriptions/verify` uses the same device token
+and verifies purchases against the Google Play Developer API
+when `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` points at a service
+account file.
 
 ## Storage
 

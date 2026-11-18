@@ -15,8 +15,8 @@ class AppSettings extends ChangeNotifier {
   static const String _kRiskThresholdPct = 'risk_threshold_pct';
   static const String _kBaseUrl = 'base_url';
   static const String _kUnits = 'units';
-  static const String _kUserId = 'user_id';
   static const String _kThemeMode = 'theme_mode';
+  static const String _kSoundEnabled = 'sound_enabled';
 
   /// Default alert distance: 300 m.
   static const double defaultAlertDistanceM = 300;
@@ -28,8 +28,11 @@ class AppSettings extends ChangeNotifier {
   double riskThresholdPct = defaultRiskThresholdPct;
   String baseUrl = defaultBaseUrl;
   String units = 'metric'; // metric | imperial
-  String userId = 'anonymous';
   String themeMode = 'system'; // system | light | dark
+
+  /// Tap sounds on/off (UI feedback clicks only — the proximity alert
+  /// sound is separate and always plays when an alert fires).
+  bool soundEnabled = true;
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -43,8 +46,8 @@ class AppSettings extends ChangeNotifier {
         prefs.getDouble(_kRiskThresholdPct) ?? defaultRiskThresholdPct;
     s.baseUrl = prefs.getString(_kBaseUrl) ?? defaultBaseUrl;
     s.units = prefs.getString(_kUnits) ?? 'metric';
-    s.userId = prefs.getString(_kUserId) ?? 'anonymous';
     s.themeMode = prefs.getString(_kThemeMode) ?? 'system';
+    s.soundEnabled = prefs.getBool(_kSoundEnabled) ?? true;
     s._loaded = true;
     return s;
   }
@@ -55,16 +58,16 @@ class AppSettings extends ChangeNotifier {
     double riskThresholdPct = defaultRiskThresholdPct,
     String baseUrl = defaultBaseUrl,
     String units = 'metric',
-    String userId = 'anonymous',
     String themeMode = 'system',
+    bool soundEnabled = true,
   }) {
     final s = AppSettings._()
       ..alertDistanceM = alertDistanceM
       ..riskThresholdPct = riskThresholdPct
       ..baseUrl = baseUrl
       ..units = units
-      ..userId = userId
       ..themeMode = themeMode
+      ..soundEnabled = soundEnabled
       .._loaded = true;
     return s;
   }
@@ -98,8 +101,8 @@ class AppSettings extends ChangeNotifier {
     await prefs.setDouble(_kRiskThresholdPct, riskThresholdPct);
     await prefs.setString(_kBaseUrl, baseUrl);
     await prefs.setString(_kUnits, units);
-    await prefs.setString(_kUserId, userId);
     await prefs.setString(_kThemeMode, themeMode);
+    await prefs.setBool(_kSoundEnabled, soundEnabled);
   }
 
   Future<void> setAlertDistanceM(double v) async {
@@ -126,16 +129,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setUserId(String v) async {
-    userId = v.trim().isEmpty ? 'anonymous' : v.trim();
-    await _save();
-    notifyListeners();
-  }
-
   /// Theme preference: 'system' (follow the phone), 'light', 'dark'.
   /// Anything else falls back to 'system'.
   Future<void> setThemeMode(String v) async {
     themeMode = (v == 'light' || v == 'dark') ? v : 'system';
+    await _save();
+    notifyListeners();
+  }
+
+  /// Tap sounds on/off. Applies immediately to the shared SoundService
+  /// via the widget tree (the service reads settings.soundEnabled).
+  Future<void> setSoundEnabled(bool v) async {
+    soundEnabled = v;
     await _save();
     notifyListeners();
   }

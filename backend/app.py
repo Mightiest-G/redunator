@@ -23,13 +23,14 @@ from pathlib import Path
 
 import pandas as pd
 import requests
-from fastapi import FastAPI, Request
+from fastapi import Body, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import config
+from .auth import issue_device_token
 from .rate_limit import limiter
 
 PROJECT_ROOT = config.PROJECT_ROOT
@@ -179,7 +180,7 @@ def create_app() -> FastAPI:
     app.include_router(predict.router)
 
     # -- Worker B routers, included tolerantly --------------------------------
-    for mod_name in ("live", "users"):
+    for mod_name in ("live", "users", "subscriptions"):
         try:
             import importlib
             mod = importlib.import_module(f".routers.{mod_name}",
@@ -275,6 +276,47 @@ def create_app() -> FastAPI:
             "notes": (data.get("body") or "")[:500],
             "reason": None,
         }
+
+    # -- device auth (no user accounts; see backend/auth.py) ----------------
+    @app.post("/auth/device", summary="Mint a device JWT")
+    def auth_device(payload: dict = Body(...)):
+        """Mint a 30-day bearer token for a device UUID.
+
+        Request: {"device_id": "<uuid>"}. Response: {"access_token",
+        "token_type": "bearer", "expires_in": 2592000}. The app sends
+        the token as `Authorization: Bearer <token>` on every user
+        endpoint; the token's `sub` claim is the device's user id.
+
+        When REDUNATOR_JWT_SECRET is not set the endpoint answers
+        503 with reason "jwt_secret_not_configured" (same fallback
+        pattern as GET /app/latest) instead of minting anything.
+        """
+        import uuid as _uuid
+
+        raw = payload.get("device_id")
+        if not raw or not isinstance(raw, str):
+            return _error_body(400, "invalid_parameters",
+                               "device_id is required (a UUID string).")
+        try:
+            device_id = str(_uuid.UUID(raw))
+        except ValueError:
+            return _error_body(400, "invalid_parameters",
+                               "device_id must be a UUID.")
+        try:
+            token, expires_in = issue_device_token(device_id)
+        except ValueError as e:
+            if "not configured" in str(e):
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "service_unavailable",
+                        "message": "Device auth is not configured on this "
+                                   "server: REDUNATOR_JWT_SECRET is not set.",
+                        "reason": "jwt_secret_not_configured",
+                    })
+            return _error_body(400, "invalid_parameters", str(e))
+        return {"access_token": token, "token_type": "bearer",
+                "expires_in": expires_in}
 
     return app
 

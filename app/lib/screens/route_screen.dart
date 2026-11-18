@@ -8,6 +8,8 @@
 // segment takes the colour of the highest-risk camera within 300 m
 // of it (green <40%, yellow 40–70%, red >70% — same thresholds as
 // the map). Cameras near the route are listed below the map.
+import 'dart:async';
+
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -17,16 +19,23 @@ import '../api/routing.dart';
 import '../config.dart';
 import '../services/proximity_service.dart';
 import '../services/risk.dart';
+import '../services/sound_service.dart';
+import '../services/subscription_service.dart';
 import '../widgets/missing_key_view.dart';
+import '../widgets/pro_upsell.dart';
 
 class RouteScreen extends StatefulWidget {
   const RouteScreen({
     super.key,
     required this.client,
     required this.proximity,
+    required this.sound,
+    required this.subscription,
   });
   final RedunatorApiClient client;
   final ProximityService proximity;
+  final SoundService sound;
+  final SubscriptionService subscription;
 
   @override
   State<RouteScreen> createState() => _RouteScreenState();
@@ -247,6 +256,28 @@ class _RouteScreenState extends State<RouteScreen> {
   @override
   Widget build(BuildContext context) {
     if (!hasMapsApiKey) return const MissingKeyView();
+    // Route planning is a Pro feature: non-Pro users get the upsell
+    // card instead of the form. AnimatedBuilder rebuilds this when a
+    // purchase completes (isPro flips).
+    return AnimatedBuilder(
+      animation: widget.subscription,
+      builder: (context, _) {
+        if (!widget.subscription.isPro) {
+          return ListView(
+            children: [
+              ProUpsellCard(
+                subscription: widget.subscription,
+                sound: widget.sound,
+              ),
+            ],
+          );
+        }
+        return _buildRouteUi();
+      },
+    );
+  }
+
+  Widget _buildRouteUi() {
     final route = _route;
     return Column(
       children: [
@@ -267,7 +298,10 @@ class _RouteScreenState extends State<RouteScreen> {
                   IconButton(
                     tooltip: 'Use my location as origin',
                     icon: const Icon(Icons.my_location),
-                    onPressed: _useMyLocationAsOrigin,
+                    onPressed: () {
+                      unawaited(widget.sound.playTap());
+                      _useMyLocationAsOrigin();
+                    },
                   ),
                 ],
               ),
@@ -284,7 +318,10 @@ class _RouteScreenState extends State<RouteScreen> {
                 child: ElevatedButton.icon(
                   onPressed:
                       (_origin != null && _destination != null && !_loading)
-                          ? _computeRoute
+                          ? () {
+                              unawaited(widget.sound.playTap());
+                              _computeRoute();
+                            }
                           : null,
                   icon: const Icon(Icons.route),
                   label: Text(_loading ? 'Routing…' : 'Show route'),

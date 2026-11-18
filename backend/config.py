@@ -49,19 +49,13 @@ MAX_NEAREST_M = float(os.environ.get("REDUNATOR_MAX_NEAREST_M", "2000"))
 RATE_LIMIT_PER_MIN = int(os.environ.get("REDUNATOR_RATE_LIMIT_PER_MIN", "100"))
 
 # --- CORS (Flutter app) ------------------------------------------------------
-# Comma-separated list of allowed origins. Defaults cover Flutter web/dev
-# and local dev servers; set REDUNATOR_CORS_ORIGINS in production.
-_DEFAULT_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost",
-    "http://localhost:5000",
-    "capacitor://localhost",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
+# The API serves a NATIVE Flutter app only — there is NO web client, so
+# no browser has a legitimate cross-origin reason to call this API.
+# Default: NO origins are allowed (an empty allow-list), so browser
+# cross-origin requests are denied. To allow a specific web origin
+# later (e.g. a future admin dashboard), set REDUNATOR_CORS_ORIGINS
+# to a comma-separated list of exact origins.
+_DEFAULT_ORIGINS: list[str] = []
 CORS_ORIGINS = [o.strip() for o in os.environ.get(
     "REDUNATOR_CORS_ORIGINS", ",".join(_DEFAULT_ORIGINS)).split(",") if o.strip()]
 

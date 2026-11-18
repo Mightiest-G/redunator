@@ -115,20 +115,23 @@ Optional — only if he wants them:
    # expect: camera 3041, adjustment_applied false
    ```
    Open `https://<host>/docs` in a browser — the OpenAPI page should
-   list all 12 routes.
-6. If the deploy will serve real users, set `REDUNATOR_API_KEY` in
-   Render (Dashboard → service → Environment → add, Generate a random
-   value) and pass it as `X-Api-Key` on the user endpoints. This is a
-   shared-secret gate, **not** user auth — JWT auth is still required
-   before any public launch (see §4).
+   list all 15 paths (including `/auth/device` and
+   `/subscriptions/verify`).
+6. If the deploy will serve real users, set `REDUNATOR_JWT_SECRET`
+   in the host env (a long random value, 32+ bytes — generate one,
+   never commit it) and have the app mint a device token at
+   `POST /auth/device`. The old `REDUNATOR_API_KEY` / `X-Api-Key`
+   gate was removed 2026-11-18 and is no longer honoured; device
+   JWTs are the auth now (see §4).
 
 ## 3. Environment variables (Render)
 
 | Variable | Set in Blueprint? | Notes |
 |---|---|---|
-| `REDUNATOR_CORS_ORIGINS` | Yes | Comma-separated allowed origins. Add the Flutter web origin when it exists. |
+| `REDUNATOR_CORS_ORIGINS` | Yes | Comma-separated allowed origins. Default is now empty (deny) — the API serves a native app only; set only if a web origin ever needs access. |
 | `REDUNATOR_RATE_LIMIT_PER_MIN` | Yes (`100`) | Per-client, in-memory, per process. `/health`, `/docs`, `/openapi.json` exempt. |
-| `REDUNATOR_API_KEY` | No (optional) | If set, every user endpoint requires matching `X-Api-Key`. Dev gate only. |
+| `REDUNATOR_JWT_SECRET` | No (**required for user endpoints**) | HS256 secret for device JWTs. Unset → `POST /auth/device` answers 503 and all user endpoints answer 401. Long random value, never committed. |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | No (optional) | Filesystem path to a Google Play service-account JSON file. Unset → `POST /subscriptions/verify` answers `{"valid": null, "reason": "play_verification_not_configured"}`. |
 | `REDUNATOR_MAX_NEAREST_M` | No (default `2000`) | Max distance for lat/lon → nearest camera. |
 | `REDUNATOR_DB_PATH` | No | Leave unset on Render (ephemeral SQLite). Set only for local testing. |
 | `DATABASE_URL` | No (optional) | `postgresql://…` to switch the user store to Postgres. Needs the Postgres block in `render.yaml`. |
@@ -136,18 +139,42 @@ Optional — only if he wants them:
 | `TOMTOM_API_KEY` / `HERE_API_KEY` / `CTA_BUS_API_KEY` | No (optional) | Key-gated live providers; unset = gracefully dropped, listed in `signals_dropped_stale`. |
 | `PORT` | Set by Render | The Dockerfile binds `$PORT` on `0.0.0.0` via `REDUNATOR_HOST` / `REDUNATOR_PORT`. |
 
-## 4. Before any public launch (not done in Phase 3)
+## 4. Before any public launch (updated 2026-11-18)
 
-- **JWT auth** for the user endpoints. Today identity is an
-  `X-User-Id` header anyone can set, and the API-key gate is a single
-  shared secret. Do not expose the user endpoints publicly as-is.
-- **Persistent user storage**: Postgres (see §0), or accept that
-  reports/alerts/feedback/settings vanish on redeploy.
+- **JWT auth — DONE in code (2026-11-18).** Device-scoped JWTs
+  (``POST /auth/device`` → Bearer token, 30-day expiry, HS256)
+  protect all four user endpoints; the spoofable ``X-User-Id``
+  header and the ``X-Api-Key`` dev gate are removed. Deploy still
+  needs ``REDUNATOR_JWT_SECRET`` set in the host env — without it
+  the backend fails closed (503 on ``/auth/device``, 401 on every
+  user endpoint). See ``backend/auth.py`` and
+  ``backend/API_REFERENCE.md``.
+- **Persistent user storage — STILL NEEDS A LIVE PROVISION.**
+  The Postgres code path is verified as far as possible without a
+  server (DDL variants, ``%s`` placeholders, ``RETURNING id``,
+  ``ON CONFLICT`` upsert — see ``backend/tests/test_postgres_path.py``),
+  and ``psycopg[binary]`` is installed, but no live Postgres
+  round-trip has ever run: there is no server on this VM. Provision
+  one (Render Postgres, or the Cloud Run deploy's equivalent) and
+  set ``DATABASE_URL``; until then the service runs on ephemeral
+  SQLite and user reports/alerts/feedback/settings vanish on
+  redeploy.
 - **Paid plan + monitoring**: the `standard` plan does not sleep, but
   there is no alerting wired up. At minimum watch `/health` and the
   Render metrics page after launch.
-- **CORS**: tighten `REDUNATOR_CORS_ORIGINS` to the real app origin(s)
-  only; the Blueprint ships the local-dev list.
+- **CORS — DONE (2026-11-18).** Default allow-list is now empty
+  (deny); the API serves a native app only. ``REDUNATOR_CORS_ORIGINS``
+  still overrides it for explicitly configured origins.
+- **Subscriptions — endpoint DONE, Google wiring NEEDS CREDENTIALS.**
+  ``POST /subscriptions/verify`` is built and tested with a mocked
+  Google client, but no service-account JSON exists yet: create one
+  in Google Play Console (service account with the
+  androidpublisher permission), put the JSON file on the host, and
+  set ``GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`` to its path. Until then
+  the endpoint answers ``{"valid": null, "reason":
+  "play_verification_not_configured"}``. Verification is stateless
+  for now — the app caches Pro locally and re-validates on launch;
+  no entitlement is stored server-side.
 - **Monthly retrain**: the `redunator-monthly-retrain` cron runs on
   this VM (day 1, ~03:45 America/Chicago). A retrain promotion writes
   versioned `redunator_brain_vN.*` files and moves `live_model.json`
@@ -237,9 +264,16 @@ on "My Billing Account 2" guards it).
 
 - **Service URL:** https://redunator-api-108691448805.us-central1.run.app
 - **Project:** `redunator` (pimjpmaster@gmail.com), region `us-central1`
-- **Image:** `us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:259c8cd`
-  (built by Cloud Build from the repo root, `-f backend/Dockerfile`;
-  build config is `cloudbuild.yaml` at the repo root)
+- **Image:** `us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:cb1d910`
+  (redeployed 2026-11-18 ~00:33, revision `redunator-api-00003-kgm`,
+  Cloud Build 1e74f70f, 3m 25s; previous image `:259c8cd`,
+  revision `redunator-api-00002-cwb`). Built by Cloud Build from
+  the repo root, `-f backend/Dockerfile`; build config is
+  `cloudbuild.yaml` at the repo root. **Manual rebuild lesson:**
+  a plain `gcloud builds submit --config cloudbuild.yaml .`
+  FAILS with "invalid image name" because `$SHORT_SHA` is empty
+  on manual submits — always add
+  `--region=us-central1 --substitutions=SHORT_SHA=<commit-sha>`.
 - **Settings:** memory 2Gi, cpu 1, min-instances 0, max-instances 2,
   `--allow-unauthenticated`, `--port 8000`. The Dockerfile already
   binds `$PORT` (`REDUNATOR_PORT=${PORT:-8000}`), so no code change
@@ -247,13 +281,17 @@ on "My Billing Account 2" guards it).
 - **Env vars on the service:** `HERE_API_KEY`, `CTA_BUS_API_KEY`,
   `TOMTOM_API_KEY` (all three set; TomTom was added by a second
   deploy after Gabriel supplied the key — it is NOT stored in the
-  repo or in memory). **`GITHUB_TOKEN` (added 2026-11-18):** a
-  read-only fine-grained PAT (Contents: read on
-  Mightiest-G/redunator) that powers `GET /app/latest`, the
-  endpoint the Flutter app's in-app update check calls. Without it
-  the endpoint still answers 200 with nulls + a reason, so the app
-  skips the check. The token value is never stored in the repo or
-  in memory.
+  repo or in memory). **`GITHUB_TOKEN` (set 2026-11-18 ~00:49,
+  revision `redunator-api-00004-x5g`):** a read-only fine-grained
+  PAT (Contents: read on Mightiest-G/redunator, no expiration,
+  named "Redunator app updates") that powers `GET /app/latest`,
+  the endpoint the Flutter app's in-app update check calls.
+  The token value is never stored in the repo or in memory. It was
+  set with `gcloud run services update redunator-api
+  --region us-central1 --update-env-vars GITHUB_TOKEN=<token>`
+  (preserves the other env vars; no redeploy needed). Verified
+  live 2026-11-18 ~00:50: `/app/latest` returns tag "apk-4",
+  build 4, download_url for apk-4, reason null.
 - **Verified live 2026-11-17 ~09:25 CST (independent curls):**
   `/health` ok, model_version 1, MAE 2.145 / RMSE 3.307, latest
   violation data 2026-10-29; `/predict_risk` cam 1413 2026-10-15 =
@@ -326,3 +364,67 @@ on "My Billing Account 2" guards it).
   Explorer Upload silently truncates the bundle — always verify
   the byte size and use the temp-release workaround). The workflow
   triggers automatically on the push.
+
+## 9. Google Play readiness (status 2026-11-18 — not started)
+
+Gabriel asked 2026-11-18 how to get Redunator on Google Play and
+how subscriptions would work. Status of each Play requirement:
+
+- **Target API — DONE already.** Flutter 3.50.0 sets
+  `targetSdkVersion = 36` (Android 16). Google Play has required
+  API 36 for new apps and updates since 2026-08-31 (the Nov 1
+  extension window has passed), so the app already clears the
+  floor with no code change.
+- **Release signing — NOT DONE.** The app is debug-signed
+  (`signingConfig = signingConfigs.getByName("debug")` in
+  `app/android/app/build.gradle.kts`); no `key.properties`, no
+  upload keystore. Play needs a release keystore + Play App
+  Signing (Google holds the signing key, we keep the upload key).
+  The keystore + passwords must live outside the repo (and out of
+  chat/memory); the Actions workflow will need the keystore +
+  secrets to sign the bundle.
+- **App Bundle — NOT DONE.** The workflow builds an APK
+  (`flutter build apk --release`); Play requires an AAB
+  (`flutter build appbundle --release`). One-line workflow change
+  once signing exists.
+- **Play Console account — NOT DONE (Gabriel's step).** $25
+  one-time fee + identity verification, on his Google account.
+  A new *personal* account must then run a **closed test with at
+  least 12 testers opted in continuously for 14 days** before
+  applying for production access (Google reviews the application,
+  usually ~7 days). So the earliest realistic store launch is
+  ~3 weeks after the closed test starts. An organization account
+  skips the 12-tester rule but needs a D-U-N-S number (up to 30
+  days to obtain).
+- **Store listing — NOT DONE.** Icon, phone screenshots,
+  description, category, content-rating questionnaire, privacy
+  policy URL (the app uses location, so a hosted privacy policy
+  is required), and the Data Safety form (location data must be
+  declared).
+- **Subscriptions — APP CODE DONE 2026-11-18 (apk-5, unreleased).**
+  Flutter `in_app_purchase` 3.3.1; `lib/services/subscription_service.dart`
+  (BillingStore seam + RealBillingStore, fake-store tests); product IDs
+  `redunator_pro_monthly` / `redunator_pro_yearly` (must be created in
+  Play Console with EXACTLY these IDs). Pro unlocks Route planning +
+  proximity alerts; Map + Query stay free (gate = `isPro`, one place).
+  A purchase only grants Pro after the backend confirms the token
+  (POST /subscriptions/verify); without backend verification Pro stays
+  off. Settings has a "Redunator Pro" section (status, products, restore);
+  Route shows an upsell card when not Pro. **Backend side DONE
+  2026-11-18:** `POST /subscriptions/verify` + device JWTs are
+  implemented and tested (129 backend tests pass); still needs the
+  Play service-account JSON on the host (see §4). **Not yet
+  live-testable:** no products exist in Play Console (Google Play
+  part, excluded by Gabriel). 10 new app tests; full suite 66 pass.
+- **Tap sounds — DONE 2026-11-18 (apk-5, unreleased).** Synthesized
+  `assets/tap.wav` (~70 ms click) + `lib/services/sound_service.dart`
+  (reuses the audioplayers setup; alert sound stays separate). Wired
+  into buttons, bottom nav, map markers and list selection, with a
+  "Tap sounds" toggle + test button in Settings (default on). 6 new
+  app tests; full suite 66 pass.
+- **Launch hardening (DEPLOY.md §4) — JWT + CORS DONE 2026-11-18
+  (backend); still open:** Postgres for user data (SQLite is
+  ephemeral on Cloud Run and vanishes on redeploy), monitoring/
+  alerts on `/health`, and automating the redeploy after a
+  monthly-retrain promotion (Cloud Run does not pick up a promoted
+  model until a redeploy happens).

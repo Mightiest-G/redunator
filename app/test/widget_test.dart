@@ -14,6 +14,8 @@ import 'package:redunator/api/models.dart';
 import 'package:redunator/screens/settings_screen.dart';
 import 'package:redunator/services/proximity_service.dart';
 import 'package:redunator/services/settings_service.dart';
+import 'package:redunator/services/sound_service.dart';
+import 'package:redunator/services/subscription_service.dart';
 import 'package:redunator/widgets/hourly_chart.dart';
 import 'package:redunator/widgets/missing_key_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,6 +75,8 @@ void main() {
             settings: AppSettings.withValues(),
             client: client,
             proximity: ProximityService(),
+            sound: SoundService(),
+            subscription: SubscriptionService(),
             onSettingsChanged: () {},
           ),
         ),
@@ -82,6 +86,8 @@ void main() {
     expect(find.textContaining('Alert distance: 300 m'), findsOneWidget);
     expect(find.textContaining('Risk threshold: 75%'), findsOneWidget);
     expect(find.textContaining('Backend base URL'), findsOneWidget);
+    expect(find.textContaining('Tap sounds'), findsOneWidget);
+    expect(find.textContaining('Redunator Pro'), findsOneWidget);
     expect(
       find.textContaining('Google Maps API key configured'),
       findsOneWidget,

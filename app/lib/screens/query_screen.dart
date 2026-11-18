@@ -1,16 +1,20 @@
 // Intersection query screen: pick an intersection (from the
 // /intersections list), pick a date + hour, and see the risk for that
 // hour — labelled honestly as the hourly ESTIMATE for that hour.
+import 'dart:async';
+
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 
 import '../api/client.dart';
 import '../api/models.dart';
 import '../services/risk.dart';
+import '../services/sound_service.dart';
 import '../widgets/hourly_chart.dart';
 
 class QueryScreen extends StatefulWidget {
-  const QueryScreen({super.key, required this.client});
+  const QueryScreen({super.key, required this.client, required this.sound});
   final RedunatorApiClient client;
+  final SoundService sound;
 
   @override
   State<QueryScreen> createState() => _QueryScreenState();
@@ -163,6 +167,7 @@ class _QueryScreenState extends State<QueryScreen> {
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
                   onTap: () {
+                    unawaited(widget.sound.playTap());
                     setState(() {
                       _selected = cam;
                       _prediction = null;
@@ -178,7 +183,10 @@ class _QueryScreenState extends State<QueryScreen> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _pickDate,
+                onPressed: () {
+                  unawaited(widget.sound.playTap());
+                  _pickDate();
+                },
                 icon: const Icon(Icons.calendar_today),
                 label: Text(
                   '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',

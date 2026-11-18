@@ -2,6 +2,8 @@
 // (default 75%), backend base URL, Google Maps API key status, units,
 // plus backend health, alert-sound test, feedback, and the honest
 // background-location note. Persisted locally with shared_preferences.
+import 'dart:async';
+
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 
 import '../api/client.dart';
@@ -10,7 +12,10 @@ import '../config.dart';
 import '../services/cache_service.dart';
 import '../services/proximity_service.dart';
 import '../services/settings_service.dart';
+import '../services/sound_service.dart';
+import '../services/subscription_service.dart';
 import '../services/update_service.dart';
+import '../widgets/pro_upsell.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -18,11 +23,15 @@ class SettingsScreen extends StatefulWidget {
     required this.settings,
     required this.client,
     required this.proximity,
+    required this.sound,
+    required this.subscription,
     required this.onSettingsChanged,
   });
   final AppSettings settings;
   final RedunatorApiClient client;
   final ProximityService proximity;
+  final SoundService sound;
+  final SubscriptionService subscription;
   final VoidCallback onSettingsChanged;
 
   @override
@@ -31,7 +40,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _baseUrlController = TextEditingController();
-  final _userIdController = TextEditingController();
   final _feedbackController = TextEditingController();
   int _feedbackRating = 5;
   String? _healthText;
@@ -47,7 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _baseUrlController.text = widget.settings.baseUrl;
-    _userIdController.text = widget.settings.userId;
     _loadVersionLabel();
   }
 
@@ -84,7 +91,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _baseUrlController.dispose();
-    _userIdController.dispose();
     _feedbackController.dispose();
     super.dispose();
   }
@@ -215,6 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () async {
+            unawaited(widget.sound.playTap());
             await widget.proximity.testSound();
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -250,29 +257,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'LAN IP (physical device).',
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _userIdController,
-          decoration: const InputDecoration(
-            labelText: 'User ID (for reports / alerts)',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (v) async {
-            await s.setUserId(v);
-            widget.onSettingsChanged();
-            setState(() {});
-          },
-        ),
         const SizedBox(height: 12),
         Row(
           children: [
             ElevatedButton(
-              onPressed: _checkingHealth ? null : _checkHealth,
+              onPressed: _checkingHealth
+                  ? null
+                  : () {
+                      unawaited(widget.sound.playTap());
+                      _checkHealth();
+                    },
               child: Text(_checkingHealth ? 'Checking…' : 'Check backend health'),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: _syncingSettings ? null : _syncToBackend,
+              onPressed: _syncingSettings
+                  ? null
+                  : () {
+                      unawaited(widget.sound.playTap());
+                      _syncToBackend();
+                    },
               child: Text(_syncingSettings ? 'Saving…' : 'Save settings to backend'),
             ),
           ],
@@ -319,6 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           selected: {s.units},
           onSelectionChanged: (sel) async {
+            unawaited(widget.sound.playTap());
             await s.setUnits(sel.first);
             setState(() {});
           },
@@ -337,6 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           selected: {s.themeMode},
           onSelectionChanged: (sel) async {
+            unawaited(widget.sound.playTap());
             await s.setThemeMode(sel.first);
             setState(() {});
           },
@@ -348,12 +354,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(height: 32),
         const Text(
+          'Sound',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Tap sounds'),
+          subtitle: const Text(
+            'A short click when you tap buttons, tabs and map markers. '
+            'The proximity alert sound is separate and is not affected.',
+          ),
+          value: s.soundEnabled,
+          onChanged: (v) async {
+            await s.setSoundEnabled(v);
+            setState(() {});
+            // Plays only when turning on (the service is disabled
+            // the moment the toggle goes off).
+            unawaited(widget.sound.playTap());
+          },
+        ),
+        OutlinedButton.icon(
+          onPressed: () async {
+            unawaited(widget.sound.testTap());
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tap sound played.')),
+            );
+          },
+          icon: const Icon(Icons.volume_up),
+          label: const Text('Test tap sound'),
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Redunator Pro',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (widget.subscription.isPro) {
+              return const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.workspace_premium, color: Colors.amber),
+                title: Text('Pro is active'),
+                subtitle: Text(
+                  'Route planning and proximity alerts are unlocked.',
+                ),
+              );
+            }
+            return ProUpsellCard(
+              subscription: widget.subscription,
+              sound: widget.sound,
+              showTitle: false,
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
           'Offline cache',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
           onPressed: () async {
+            unawaited(widget.sound.playTap());
             await CacheService().clear();
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -371,7 +437,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text('Current version: $_versionLabel'),
         const SizedBox(height: 8),
         ElevatedButton(
-          onPressed: _checkingUpdate ? null : _checkForUpdate,
+          onPressed: _checkingUpdate
+              ? null
+              : () {
+                  unawaited(widget.sound.playTap());
+                  _checkForUpdate();
+                },
           child: Text(_checkingUpdate ? 'Checking…' : 'Check for updates'),
         ),
         if (_updateText != null)
@@ -419,7 +490,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Spacer(),
             ElevatedButton(
-              onPressed: _sendingFeedback ? null : _sendFeedback,
+              onPressed: _sendingFeedback
+                  ? null
+                  : () {
+                      unawaited(widget.sound.playTap());
+                      _sendFeedback();
+                    },
               child: Text(_sendingFeedback ? 'Sending…' : 'Send feedback'),
             ),
           ],

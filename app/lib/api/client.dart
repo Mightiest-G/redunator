@@ -19,6 +19,7 @@ class RedunatorApiClient {
     http.Client? httpClient,
     this.userId = 'anonymous',
     this.apiKey,
+    this.authToken,
   }) : _http = httpClient ?? http.Client();
 
   /// Base URL without a trailing slash, e.g. the Cloud Run service URL.
@@ -33,6 +34,17 @@ class RedunatorApiClient {
   /// REDUNATOR_API_KEY set (local-dev gate, not real auth).
   final String? apiKey;
 
+  /// Device JWT (Bearer token) for the protected user endpoints.
+  /// Set by the auth wiring (TokenService) after POST /auth/device;
+  /// null until then, in which case protected calls return 401.
+  /// Mutable on purpose: the token is refreshed in place on expiry.
+  String? authToken;
+
+  /// Called (once per request) when a call returns 401, before the
+  /// client retries it. The auth wiring sets this to a token refresh
+  /// (TokenService.refreshToken). Null = no retry, the 401 surfaces.
+  Future<void> Function()? onUnauthorized;
+
   String get _base => baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
 
   Map<String, String> get _headers {
@@ -41,6 +53,9 @@ class RedunatorApiClient {
       'X-User-Id': userId,
     };
     if (apiKey != null && apiKey!.isNotEmpty) h['X-Api-Key'] = apiKey!;
+    if (authToken != null && authToken!.isNotEmpty) {
+      h['Authorization'] = 'Bearer $authToken';
+    }
     return h;
   }
 
@@ -53,7 +68,7 @@ class RedunatorApiClient {
   }
 
   Future<Map<String, dynamic>> _getJson(Uri uri) async {
-    final resp = await _http.get(uri, headers: _headers);
+    final resp = await _send(() => _http.get(uri, headers: _headers));
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException.fromBody(resp.statusCode, resp.body);
     }
@@ -64,10 +79,43 @@ class RedunatorApiClient {
     Uri uri,
     Map<String, dynamic> body,
   ) async {
+    final resp = await _send(() => _http.post(
+          uri,
+          headers: _headers,
+          body: jsonEncode(body),
+        ));
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw ApiException.fromBody(resp.statusCode, resp.body);
+    }
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  /// Sends one request, retrying ONCE after a 401 if an
+  /// onUnauthorized handler is set (it refreshes the device token;
+  /// headers are re-read on the retry so the fresh token is sent).
+  /// No retry for any other status, and never more than one retry.
+  Future<http.Response> _send(
+    Future<http.Response> Function() attempt,
+  ) async {
+    var resp = await attempt();
+    if (resp.statusCode == 401 && onUnauthorized != null) {
+      await onUnauthorized!();
+      resp = await attempt();
+    }
+    return resp;
+  }
+
+  // ------------------------------------------------------------------
+  // POST /auth/device — mints a device JWT. Public endpoint; does NOT
+  // go through _send (there is no token to refresh yet, and a 503
+  // means the backend has no JWT secret configured — retrying a mint
+  // would not help). Returns {access_token, token_type, expires_in}.
+  // ------------------------------------------------------------------
+  Future<Map<String, dynamic>> issueDeviceToken(String deviceId) async {
     final resp = await _http.post(
-      uri,
-      headers: _headers,
-      body: jsonEncode(body),
+      _uri('/auth/device'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'device_id': deviceId}),
     );
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException.fromBody(resp.statusCode, resp.body);
@@ -155,7 +203,7 @@ class RedunatorApiClient {
       q['min_typical_weekend_pred'] = minTypicalWeekendPred.toString();
     }
     if (band != null) q['band'] = band;
-    final resp = await _http.get(_uri('/intersections', q), headers: _headers);
+    final resp = await _send(() => _http.get(_uri('/intersections', q), headers: _headers));
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException.fromBody(resp.statusCode, resp.body);
     }
@@ -267,7 +315,7 @@ class RedunatorApiClient {
   }
 
   Future<UserAlert> deleteUserAlert(int id) async {
-    final resp = await _http.delete(_uri('/user_alerts/$id'), headers: _headers);
+    final resp = await _send(() => _http.delete(_uri('/user_alerts/$id'), headers: _headers));
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException.fromBody(resp.statusCode, resp.body);
     }
@@ -281,6 +329,28 @@ class RedunatorApiClient {
   Future<Map<String, dynamic>> sendFeedback(UserFeedback feedback) async {
     final body = feedback.toJson()..['user_id'] = userId;
     return _postJson(_uri('/user_feedback'), body);
+  }
+
+  // ------------------------------------------------------------------
+  // POST /subscriptions/verify — asks the backend to confirm a Play
+  // purchase token with the Google Play Developer API. Returns the
+  // backend's verdict map: {valid: true/false, product_id, expiry,
+  // auto_renewing} — or {valid: null, reason:
+  // "play_verification_not_configured"} when the server has no Play
+  // credentials yet. Throws ApiException on 401 (no/expired JWT) and
+  // other HTTP errors; callers treat that as "verification
+  // unavailable", never as proof of a purchase.
+  // ------------------------------------------------------------------
+  Future<Map<String, dynamic>> verifySubscription({
+    required String productId,
+    required String purchaseToken,
+    required String deviceId,
+  }) async {
+    return _postJson(_uri('/subscriptions/verify'), {
+      'product_id': productId,
+      'purchase_token': purchaseToken,
+      'device_id': deviceId,
+    });
   }
 
   // ------------------------------------------------------------------

@@ -11,25 +11,31 @@
 //
 // Writes to the backend's dev SQLite DB: one spike report, one alert
 // (created then deactivated), one settings round-trip (same defaults),
-// one feedback row — all under user id "w3-live-test" and marked as a
-// verification test in their note/text, so they are identifiable.
+// one feedback row — all under the test device UUID below and marked
+// as a verification test in their note/text, so they are identifiable.
+//
+// User endpoints need a device JWT (POST /auth/device, backend
+// 2026-11-18): setUpAll mints one for the test device. If minting
+// fails (old backend, or no JWT secret configured), the user-endpoint
+// tests SKIP while the public-endpoint tests still run.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redunator/api/client.dart';
 import 'package:redunator/api/models.dart';
 
+/// Fixed test device UUID (a valid UUID so the backend accepts it).
+const String kLiveTestDeviceId = '11111111-1111-4111-8111-111111111111';
+
 void main() {
   final baseUrl = Platform.environment['REDUNATOR_LIVE_BASE_URL'] ??
       'http://127.0.0.1:8000';
   late final RedunatorApiClient client;
   var live = false;
+  var authed = false;
 
   setUpAll(() async {
-    client = RedunatorApiClient(
-      baseUrl: baseUrl,
-      userId: 'w3-live-test',
-    );
+    client = RedunatorApiClient(baseUrl: baseUrl);
     try {
       final h = await client
           .getHealth()
@@ -37,6 +43,19 @@ void main() {
       live = h.status == 'ok';
     } catch (_) {
       live = false;
+    }
+    if (!live) return;
+    try {
+      final json = await client
+          .issueDeviceToken(kLiveTestDeviceId)
+          .timeout(const Duration(seconds: 10));
+      final token = json['access_token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        client.authToken = token;
+        authed = true;
+      }
+    } catch (_) {
+      authed = false;
     }
   });
 
@@ -47,6 +66,16 @@ void main() {
       markTestSkipped(
         'Live backend not reachable at $baseUrl — start it with '
         '`~/workspace/redunator-venv/bin/python -m backend.app`.',
+      );
+    }
+  }
+
+  void requireAuthed() {
+    requireLive();
+    if (!authed) {
+      markTestSkipped(
+        'Could not mint a device token at $baseUrl — the backend '
+        'predates device JWTs or has no REDUNATOR_JWT_SECRET set.',
       );
     }
   }
@@ -177,7 +206,7 @@ void main() {
   });
 
   test('live: Report Spike round-trip (POST then GET)', () async {
-    requireLive();
+    requireAuthed();
     final created = await client.reportSpike(
       cameraId: '1413',
       note: '[Worker 3 live verification 2026-11-16] test spike report',
@@ -190,7 +219,7 @@ void main() {
   });
 
   test('live: user alerts create → list → deactivate', () async {
-    requireLive();
+    requireAuthed();
     final created = await client.createUserAlert(
       latitude: 41.940241,
       longitude: -87.639639,
@@ -207,7 +236,7 @@ void main() {
   });
 
   test('live: user settings round-trip (defaults)', () async {
-    requireLive();
+    requireAuthed();
     final before = await client.getUserSettings();
     expect(before.units, 'metric');
     expect(before.alertRadiusM, 2000);
@@ -223,13 +252,44 @@ void main() {
   });
 
   test('live: feedback posts (201)', () async {
-    requireLive();
+    requireAuthed();
     final resp = await client.sendFeedback(UserFeedback(
       text: '[Worker 3 live verification 2026-11-16] test feedback row',
       rating: 5,
       category: 'verification',
     ));
     expect(resp['id'], isNotNull);
+  });
+
+  test('live: device auth mints a token; user endpoints need it',
+      () async {
+    requireLive();
+    // Minting works on the JWT backend; on an old backend it 404s.
+    try {
+      final json = await client.issueDeviceToken(kLiveTestDeviceId);
+      expect(json['token_type'], 'bearer');
+      expect(json['access_token'], isNotEmpty);
+      expect(json['expires_in'], 2592000);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        markTestSkipped(
+          'Deployed backend predates POST /auth/device — redeploy it.',
+        );
+        return;
+      }
+      rethrow;
+    }
+    // A bad token is refused on a protected endpoint.
+    final unauthed = RedunatorApiClient(baseUrl: baseUrl);
+    addTearDown(unauthed.close);
+    expect(
+      () => unauthed.getUserSettings(),
+      throwsA(isA<ApiException>().having(
+        (e) => e.statusCode,
+        'statusCode',
+        401,
+      )),
+    );
   });
 
   test('live: error paths surface typed ApiExceptions', () async {

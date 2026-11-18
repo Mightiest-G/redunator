@@ -31,6 +31,8 @@ def test_openapi_lists_all_routes(client):
     paths = r.json()["paths"]
     expected = {
         "/health",
+        "/app/latest",
+        "/auth/device",
         "/predict_risk",
         "/predict_risk/batch",
         "/intersections",
@@ -42,6 +44,7 @@ def test_openapi_lists_all_routes(client):
         "/user_alerts/{alert_id}",
         "/user_feedback",
         "/user_settings",
+        "/subscriptions/verify",
     }
     assert expected <= set(paths), f"missing routes: {expected - set(paths)}"
 
@@ -53,6 +56,9 @@ def test_docs_loads(client):
 
 
 def test_cors_preflight(client):
+    """CORS default is deny (2026-11-18): the API serves a native
+    app only, so a browser preflight from any origin is refused —
+    no access-control-allow-origin header comes back."""
     r = client.options(
         "/predict_risk",
         headers={
@@ -61,14 +67,15 @@ def test_cors_preflight(client):
             "Access-Control-Request-Headers": "content-type",
         },
     )
-    assert r.status_code == 200
-    assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "access-control-allow-origin" not in r.headers
 
 
 def test_cors_response_header(client):
+    """A plain request still succeeds, but a browser Origin gets no
+    CORS allowance back under the deny-by-default config."""
     r = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert r.status_code == 200
-    assert r.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "access-control-allow-origin" not in r.headers
 
 
 def test_unknown_route_is_404_json(client):

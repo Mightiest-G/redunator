@@ -7,6 +7,8 @@
 // hourly bands, and the reasons from /predict_risk. Hourly values are
 // labelled as estimates everywhere. The risk score shown is the
 // backend's returned risk_score — the app invents no hourly scale.
+import 'dart:async';
+
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -18,6 +20,8 @@ import '../services/map_style.dart';
 import '../services/proximity_service.dart';
 import '../services/risk.dart';
 import '../services/settings_service.dart';
+import '../services/sound_service.dart';
+import '../services/subscription_service.dart';
 import '../widgets/hourly_chart.dart';
 import '../widgets/missing_key_view.dart';
 
@@ -27,11 +31,15 @@ class MapScreen extends StatefulWidget {
     required this.settings,
     required this.client,
     required this.proximity,
+    required this.sound,
+    required this.subscription,
     required this.onBaseUrlChanged,
   });
   final AppSettings settings;
   final RedunatorApiClient client;
   final ProximityService proximity;
+  final SoundService sound;
+  final SubscriptionService subscription;
   final VoidCallback onBaseUrlChanged;
 
   @override
@@ -53,7 +61,33 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    // If Pro is bought while the app is open (from Settings), start
+    // the proximity watcher when the tab is already loaded; stop it
+    // if Pro lapses.
+    widget.subscription.addListener(_onSubscriptionChanged);
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.subscription.removeListener(_onSubscriptionChanged);
+    super.dispose();
+  }
+
+  void _onSubscriptionChanged() {
+    if (!mounted) return;
+    if (widget.subscription.isPro) {
+      if (_cameras.isNotEmpty && !widget.proximity.running) {
+        _startProximity();
+      }
+    } else {
+      unawaited(widget.proximity.stop());
+      if (mounted) {
+        setState(() {
+          _alertMessage = null;
+        });
+      }
+    }
   }
 
   Future<void> _load() async {
@@ -117,6 +151,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _startProximity() async {
+    // Proximity alerts are a Pro feature. Free users see a note on
+    // the Settings screen instead of a silently dead watcher.
+    if (!widget.subscription.isPro) return;
     await widget.proximity.start(
       cameras: _cameras,
       predictions: _predictions,
@@ -150,7 +187,10 @@ class _MapScreenState extends State<MapScreen> {
           snippet:
               'Risk ${formatPercent(score)} · ${pred?.riskLevel ?? cam.typicalWeekdayBand}',
         ),
-        onTap: () => _showDetail(cam),
+        onTap: () {
+          unawaited(widget.sound.playTap());
+          _showDetail(cam);
+        },
       );
     }).whereType<Marker>().toSet();
   }
@@ -164,6 +204,7 @@ class _MapScreenState extends State<MapScreen> {
         prediction: _predictions[cam.cameraId],
         client: widget.client,
         settings: widget.settings,
+        sound: widget.sound,
       ),
     );
   }
@@ -205,7 +246,10 @@ class _MapScreenState extends State<MapScreen> {
                   Text(_error ?? 'No camera data.'),
                   const SizedBox(height: 12),
                   ElevatedButton(
-                    onPressed: _load,
+                    onPressed: () {
+                      unawaited(widget.sound.playTap());
+                      _load();
+                    },
                     child: const Text('Retry'),
                   ),
                 ],
@@ -260,14 +304,20 @@ class _MapScreenState extends State<MapScreen> {
             children: [
               FloatingActionButton.small(
                 heroTag: 'loc',
-                onPressed: _goToMyLocation,
+                onPressed: () {
+                  unawaited(widget.sound.playTap());
+                  _goToMyLocation();
+                },
                 tooltip: 'My location',
                 child: const Icon(Icons.my_location),
               ),
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: 'refresh',
-                onPressed: _load,
+                onPressed: () {
+                  unawaited(widget.sound.playTap());
+                  _load();
+                },
                 tooltip: 'Refresh',
                 child: const Icon(Icons.refresh),
               ),
@@ -341,11 +391,13 @@ class IntersectionDetailSheet extends StatefulWidget {
     required this.prediction,
     required this.client,
     required this.settings,
+    required this.sound,
   });
   final Intersection camera;
   final Prediction? prediction;
   final RedunatorApiClient client;
   final AppSettings settings;
+  final SoundService sound;
 
   @override
   State<IntersectionDetailSheet> createState() =>
@@ -515,7 +567,12 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _reporting ? null : _reportSpike,
+              onPressed: _reporting
+                  ? null
+                  : () {
+                      unawaited(widget.sound.playTap());
+                      _reportSpike();
+                    },
               icon: const Icon(Icons.report),
               label: Text(_reporting ? 'Sending…' : 'Report Spike here'),
             ),

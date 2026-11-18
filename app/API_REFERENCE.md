@@ -30,18 +30,24 @@ SQLite default):
 - Errors everywhere are `{"error": ..., "message": ...}`
   (400 bad request, 404 not found / no camera nearby, 422 validation,
   429 rate limited, 500 internal).
-- CORS: default allowed origins include `http://localhost:3000`,
-  `http://127.0.0.1:3000`, `http://localhost:8080`, `http://127.0.0.1:8080`,
-  `http://localhost`, `http://localhost:5000`, `capacitor://localhost`,
-  `http://localhost:8000`, `http://127.0.0.1:8000`. Override with
-  env `REDUNATOR_CORS_ORIGINS` (comma-separated).
+- CORS: default allowed origins is **empty (deny)** since 2026-11-18 —
+  the API serves a native app only, so browser cross-origin requests
+  are denied by default. Override with env `REDUNATOR_CORS_ORIGINS`
+  (comma-separated) if a web origin ever needs access.
 - Env overrides: `REDUNATOR_HOST` (default `127.0.0.1`),
   `REDUNATOR_PORT` (default `8000`), `REDUNATOR_MAX_NEAREST_M`
   (default `2000`), `REDUNATOR_RATE_LIMIT_PER_MIN` (default `100`),
-  `REDUNATOR_DB_PATH` (default `<root>/data/redunator.db`),
-  `REDUNATOR_API_KEY` (unset = user endpoints open; if set, every user
-  endpoint needs matching `X-Api-Key` header, 401 otherwise —
-  local-dev gate only, NOT real auth; production MUST use JWT).
+  `REDUNATOR_DB_PATH` (default `<root>/data/redunator.db`).
+- Auth: device JWTs (since 2026-11-18). `POST /auth/device` with
+  `{"device_id": "<uuid>"}` → `{"access_token", "token_type":
+  "bearer", "expires_in": 2592000}` (30 days, HS256, secret from env
+  `REDUNATOR_JWT_SECRET`). Every user endpoint requires
+  `Authorization: Bearer <token>` (401 otherwise); the token's `sub`
+  claim IS the user id. Secret unset → `POST /auth/device` answers
+  503 `jwt_secret_not_configured` and protected endpoints 401 — the
+  backend fails closed. The old `X-User-Id` header / `user_id` body
+  identity and the `REDUNATOR_API_KEY` / `X-Api-Key` gate are gone
+  (removed 2026-11-18; the header and body fields are ignored).
 
 ## Scales and bands (do not hardcode differently)
 
@@ -228,11 +234,11 @@ camera 3041 "MICHIGAN AND JACKSON", 443 m, hour 05:00 predicted 0.038
 LOW, daily 10.3 `pre_test_mean`, confidence 0.4, adjustment_applied
 false, factor 1.0, signals_used open-meteo-current + open-meteo-forecast.
 
-### User endpoints (no account system in Phase 3)
-Identity: `X-User-Id` header, else `user_id` field in the JSON body,
-else `"anonymous"`. No auth in local dev by default; if
-`REDUNATOR_API_KEY` is set, every user endpoint requires the matching
-`X-Api-Key` header (401 otherwise). Storage: SQLite by default
+### User endpoints (device JWT auth, since 2026-11-18)
+Identity: the device JWT — the app mints one per device via
+`POST /auth/device` and sends `Authorization: Bearer <token>`; the
+token's `sub` (device UUID) is the user id. `X-User-Id` and `user_id`
+in bodies are ignored. No token → 401. Storage: SQLite by default
 (`data/redunator.db`; override `REDUNATOR_DB_PATH`); Postgres via
 `DATABASE_URL` (PostGIS not needed).
 
@@ -261,6 +267,20 @@ else `"anonymous"`. No auth in local dev by default; if
   `{"settings": {...}}`; merges over stored values. Validates
   `units` (metric/imperial), `risk_threshold` (LOW/MEDIUM/HIGH),
   `alert_radius_m` (number).
+
+### POST /subscriptions/verify (since 2026-11-18)
+Requires the device JWT; body `device_id` must match the token's
+device (401 otherwise). Body: `{"product_id", "purchase_token",
+"device_id"}`. Product IDs: `redunator_pro_monthly`,
+`redunator_pro_yearly` (created in Play Console later). With the
+Play service-account JSON configured (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+= path to the JSON file), verifies via Google Play
+`purchases.subscriptionsv2.get` → 200 `{"valid": true/false,
+"product_id", "expiry", "auto_renewing"}`; `valid` is true only for
+ACTIVE or IN_GRACE_PERIOD. Without it → 200 `{"valid": null, "reason":
+"play_verification_not_configured"}`. Stateless: no entitlement is
+stored server-side; the app caches Pro locally and re-validates on
+launch. Pro is granted only on `valid: true`.
 
 ## Model pointer
 The backend never hardcodes a model version: `live_model.json` names
