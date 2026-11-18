@@ -159,9 +159,16 @@ Optional — only if he wants them:
   set ``DATABASE_URL``; until then the service runs on ephemeral
   SQLite and user reports/alerts/feedback/settings vanish on
   redeploy.
-- **Paid plan + monitoring**: the `standard` plan does not sleep, but
-  there is no alerting wired up. At minimum watch `/health` and the
-  Render metrics page after launch.
+- **Monitoring — DONE (2026-11-18).** GCP uptime check
+  "redunator-api-health" (ID redunator-api-health-L03j_nb8PhQ):
+  HTTPS GET /health every 5 min, 60 s timeout (covers the ~30 s
+  cold start — the Console's pre-creation test answered 200 in
+  15.5 s), response must contain "ok". Verified PASSING/UP, 100%
+  uptime since creation, all six checker locations green. Alert
+  policy "redunator-api-down" (enabled): fires when more than one
+  region fails (20-min rolling window), emails
+  gabriel3dragon@gmail.com on open and on closure; no alerts open.
+  No other project changes were made.
 - **CORS — DONE (2026-11-18).** Default allow-list is now empty
   (deny); the API serves a native app only. ``REDUNATOR_CORS_ORIGINS``
   still overrides it for explicitly configured origins.
@@ -178,11 +185,26 @@ Optional — only if he wants them:
 - **Monthly retrain**: the `redunator-monthly-retrain` cron runs on
   this VM (day 1, ~03:45 America/Chicago). A retrain promotion writes
   versioned `redunator_brain_vN.*` files and moves `live_model.json`
-  in the *repo* — Render does NOT pick that up until a redeploy
-  happens (the image is a snapshot). The deploy-time answer is: after
-  a promotion, redeploy the service (Render dashboard → Manual Deploy,
-  or push the new model files + pointer and let Render auto-deploy).
-  Automating that (webhook / scheduled redeploy) is Phase 4 work.
+  in the *repo* — the Cloud Run image is a snapshot, so the live
+  service does not pick that up until a redeploy happens. The
+  automation (built 2026-11-18, first live test = the 2026-12-01
+  retrain): on PROMOTE the cron runs `scripts/push_promotion.sh`,
+  which commits the promoted files + pointer and pushes to main
+  via the retrain deploy key (`~/.ssh/redunator-retrain` — public
+  key fingerprint SHA256:GkqeJCHCweD5Jd7cQ9JTWZuiLedYsJdC73EE52U6CXM,
+  still to be added to the repo's Deploy keys with Write access);
+  a Cloud Build trigger on pushes touching model/backend files
+  then builds + deploys (`cloudbuild.yaml` now has the deploy
+  step — `gcloud run deploy --image` preserves existing env vars).
+  The backend re-reads `live_model.json` per request
+  (`backend/model_service.py`, mtime check) and reloads the ONNX
+  session when the pointer moves, so a redeployed image serves the
+  new model with no restart. STILL OPEN: add the deploy key to the
+  repo (browser) + create the Cloud Build trigger with its file
+  filter (`redunator_brain_v*`, `live_model.json`, `backend/**`,
+  `cloudbuild.yaml`, serving parquet) — and grant the Cloud Build
+  service account `roles/run.admin` + `roles/iam.serviceAccountUser`
+  so the trigger can deploy.
 
 ## 5. Getting back to the free tier (levers 1+2 DONE 2026-11-17 — still not enough)
 

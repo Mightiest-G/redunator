@@ -2,6 +2,11 @@
 # Build from the REPO ROOT: the Dockerfile is backend/Dockerfile and the
 # image needs the model files + processed data at the root.
 # Build with: gcloud builds submit --config cloudbuild.yaml --region=us-central1 .
+# The deploy step runs on every build from this config (manual submits
+# and the Cloud Build trigger alike): `gcloud run deploy --image`
+# preserves the service's existing env vars, so a rebuild never drops
+# a key. The trigger that calls this config must filter to model /
+# backend files (see DEPLOY.md §4) so app-only pushes don't redeploy.
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -11,5 +16,16 @@ steps:
       - '-f'
       - 'backend/Dockerfile'
       - '.'
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'redunator-api'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
 images:
   - 'us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:$SHORT_SHA'
