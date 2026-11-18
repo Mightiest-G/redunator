@@ -14,6 +14,7 @@ import '../api/client.dart';
 import '../api/models.dart';
 import '../config.dart';
 import '../services/cache_service.dart';
+import '../services/map_style.dart';
 import '../services/proximity_service.dart';
 import '../services/risk.dart';
 import '../services/settings_service.dart';
@@ -220,6 +221,10 @@ class _MapScreenState extends State<MapScreen> {
             markers: _markers,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
+            // Dark map style follows the app theme (system/light/dark
+            // setting). Rebuilds when the setting changes because the
+            // MaterialApp above rebuilds on AppSettings notifications.
+            style: widget.settings.isDark(context) ? darkMapStyleJson : null,
             onMapCreated: (c) => _mapController = c,
           ),
         Positioned(

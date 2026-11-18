@@ -1,9 +1,9 @@
 // App settings, persisted with shared_preferences.
 // These are LOCAL app settings (alert distance, threshold, base URL,
-// units). They are separate from the backend's /user_settings, which
-// the app also reads/writes (see RedunatorApiClient) — the backend
+// units, theme). They are separate from the backend's /user_settings,
+// which the app also reads/writes (see RedunatorApiClient) — the backend
 // copy is the server-side record; this copy drives the app UI.
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
@@ -16,6 +16,7 @@ class AppSettings extends ChangeNotifier {
   static const String _kBaseUrl = 'base_url';
   static const String _kUnits = 'units';
   static const String _kUserId = 'user_id';
+  static const String _kThemeMode = 'theme_mode';
 
   /// Default alert distance: 300 m.
   static const double defaultAlertDistanceM = 300;
@@ -28,6 +29,7 @@ class AppSettings extends ChangeNotifier {
   String baseUrl = defaultBaseUrl;
   String units = 'metric'; // metric | imperial
   String userId = 'anonymous';
+  String themeMode = 'system'; // system | light | dark
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -42,6 +44,7 @@ class AppSettings extends ChangeNotifier {
     s.baseUrl = prefs.getString(_kBaseUrl) ?? defaultBaseUrl;
     s.units = prefs.getString(_kUnits) ?? 'metric';
     s.userId = prefs.getString(_kUserId) ?? 'anonymous';
+    s.themeMode = prefs.getString(_kThemeMode) ?? 'system';
     s._loaded = true;
     return s;
   }
@@ -53,6 +56,7 @@ class AppSettings extends ChangeNotifier {
     String baseUrl = defaultBaseUrl,
     String units = 'metric',
     String userId = 'anonymous',
+    String themeMode = 'system',
   }) {
     final s = AppSettings._()
       ..alertDistanceM = alertDistanceM
@@ -60,8 +64,30 @@ class AppSettings extends ChangeNotifier {
       ..baseUrl = baseUrl
       ..units = units
       ..userId = userId
+      ..themeMode = themeMode
       .._loaded = true;
     return s;
+  }
+
+  /// The Flutter ThemeMode for MaterialApp. Unknown stored values fall
+  /// back to following the phone.
+  ThemeMode get themeModeEnum {
+    switch (themeMode) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  /// Whether the UI (including the map) should render dark right now:
+  /// explicit light/dark wins, otherwise the phone's system setting.
+  bool isDark(BuildContext context) {
+    if (themeMode == 'dark') return true;
+    if (themeMode == 'light') return false;
+    return MediaQuery.platformBrightnessOf(context) == Brightness.dark;
   }
 
   double get riskThresholdScore => riskThresholdPct / 100;
@@ -73,6 +99,7 @@ class AppSettings extends ChangeNotifier {
     await prefs.setString(_kBaseUrl, baseUrl);
     await prefs.setString(_kUnits, units);
     await prefs.setString(_kUserId, userId);
+    await prefs.setString(_kThemeMode, themeMode);
   }
 
   Future<void> setAlertDistanceM(double v) async {
@@ -101,6 +128,14 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setUserId(String v) async {
     userId = v.trim().isEmpty ? 'anonymous' : v.trim();
+    await _save();
+    notifyListeners();
+  }
+
+  /// Theme preference: 'system' (follow the phone), 'light', 'dark'.
+  /// Anything else falls back to 'system'.
+  Future<void> setThemeMode(String v) async {
+    themeMode = (v == 'light' || v == 'dark') ? v : 'system';
     await _save();
     notifyListeners();
   }

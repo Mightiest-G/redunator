@@ -84,6 +84,16 @@ class RedunatorApiClient {
   }
 
   // ------------------------------------------------------------------
+  // GET /app/latest — latest published APK release (update check).
+  // Returns tag/build/download URL, or nulls + a reason when the
+  // backend cannot reach GitHub (e.g. no token configured).
+  // ------------------------------------------------------------------
+  Future<LatestRelease> getLatestRelease() async {
+    final json = await _getJson(_uri('/app/latest'));
+    return LatestRelease.fromJson(json);
+  }
+
+  // ------------------------------------------------------------------
   // POST /predict_risk
   // Body: at least one of camera_id OR latitude+longitude.
   // NOTE: the date field is named `timestamp` (ISO-8601), NOT `date`.

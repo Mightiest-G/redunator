@@ -10,6 +10,7 @@ import '../config.dart';
 import '../services/cache_service.dart';
 import '../services/proximity_service.dart';
 import '../services/settings_service.dart';
+import '../services/update_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -38,12 +39,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _checkingHealth = false;
   bool _sendingFeedback = false;
   bool _syncingSettings = false;
+  String _versionLabel = '…';
+  bool _checkingUpdate = false;
+  String? _updateText;
 
   @override
   void initState() {
     super.initState();
     _baseUrlController.text = widget.settings.baseUrl;
     _userIdController.text = widget.settings.userId;
+    _loadVersionLabel();
+  }
+
+  Future<void> _loadVersionLabel() async {
+    final label = await UpdateService.currentVersionLabel();
+    if (!mounted) return;
+    setState(() => _versionLabel = label);
+  }
+
+  Future<void> _checkForUpdate() async {
+    setState(() {
+      _checkingUpdate = true;
+      _updateText = null;
+    });
+    final info = await UpdateService.checkForUpdate(widget.client);
+    if (!mounted) return;
+    setState(() => _checkingUpdate = false);
+    if (info == null) {
+      setState(
+        () => _updateText = 'You are up to date ($_versionLabel).',
+      );
+      return;
+    }
+    final opened = await UpdateService.showUpdateDialog(context, info);
+    if (!mounted) return;
+    setState(() {
+      _updateText = opened
+          ? 'Downloading ${info.tag}…'
+          : 'Update ${info.tag} is available — tap Check for updates '
+              'again to download it.';
+    });
   }
 
   @override
@@ -290,6 +325,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(height: 32),
         const Text(
+          'Appearance',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'system', label: Text('System')),
+            ButtonSegment(value: 'light', label: Text('Light')),
+            ButtonSegment(value: 'dark', label: Text('Dark')),
+          ],
+          selected: {s.themeMode},
+          onSelectionChanged: (sel) async {
+            await s.setThemeMode(sel.first);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'System follows your phone. Dark also darkens the map.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const Divider(height: 32),
+        const Text(
           'Offline cache',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
@@ -303,6 +361,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             );
           },
           child: const Text('Clear cached intersections / predictions'),
+        ),
+        const Divider(height: 32),
+        const Text(
+          'App updates',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text('Current version: $_versionLabel'),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: _checkingUpdate ? null : _checkForUpdate,
+          child: Text(_checkingUpdate ? 'Checking…' : 'Check for updates'),
+        ),
+        if (_updateText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_updateText!),
+          ),
+        const SizedBox(height: 4),
+        const Text(
+          'The app also checks once when it opens. New versions come '
+          'from the same place you installed this one.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const Divider(height: 32),
         const Text(
@@ -349,10 +430,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(_feedbackResult!),
           ),
         const SizedBox(height: 24),
-        const Text(
-          'Redunator 1.0.0 — hourly values are estimates from proxies, '
-          'not observed hourly violations.',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+        Text(
+          'Redunator $_versionLabel — hourly values are estimates from '
+          'proxies, not observed hourly violations.',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
       ],
     );

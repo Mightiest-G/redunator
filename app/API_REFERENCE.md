@@ -76,6 +76,19 @@ latest_crash_date: "2026-10-29",
 latest_crash_source: "data/hourly/raw/crashes_20250101_20261029.csv"}`).
 Exempt from rate limiting.
 
+### GET /app/latest
+Latest published APK release, for the Flutter app's in-app update
+check. No params. Response: `tag` (e.g. `"apk-4"`), `build` (int —
+the release number, which the workflow also stamps into the APK as
+its build number), `name`, `published_at`, `download_url` (the
+`app-release.apk` asset URL, or the release page URL when the asset
+is missing), `notes` (first 500 chars of the release body),
+`reason` (null on success). When the backend has no GitHub token
+(`GITHUB_TOKEN` env var unset) or GitHub cannot be reached, it
+still answers 200 with nulls and a `reason`
+(`github_token_not_configured` / `github_lookup_failed`) — the app
+then skips the update check. Exempt from rate limiting.
+
 ### POST /predict_risk
 Body (JSON): **at least one of** `camera_id` (string, e.g. `"1413"`)
 **or** `latitude` + `longitude` (floats, −90…90 / −180…180).

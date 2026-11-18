@@ -14,12 +14,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+import requests
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,8 +39,34 @@ if str(PROJECT_ROOT) not in sys.path:
 log = logging.getLogger("redunator.backend")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-RATE_LIMIT_EXEMPT = {"/health", "/docs", "/openapi.json", "/redoc",
-                     "/openapi.json", "/docs/oauth2-redirect"}
+RATE_LIMIT_EXEMPT = {"/health", "/app/latest", "/docs", "/openapi.json",
+                     "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
+
+
+def _release_build(tag: str | None) -> int | None:
+    """Build number from a release tag like 'apk-4' (None otherwise).
+
+    The Actions workflow tags releases apk-<run-number> and stamps the
+    same number into the APK as its build number, so the app's update
+    check compares these two numbers.
+    """
+    if not tag:
+        return None
+    m = re.match(r"apk-(\d+)$", tag)
+    return int(m.group(1)) if m else None
+
+
+def _latest_release_unavailable(reason: str) -> dict:
+    """Shape of GET /app/latest when GitHub cannot be reached."""
+    return {
+        "tag": None,
+        "build": None,
+        "name": None,
+        "published_at": None,
+        "download_url": None,
+        "notes": None,
+        "reason": reason,
+    }
 
 
 def _log_line(level: str, event: str, **fields) -> None:
@@ -192,6 +221,59 @@ def create_app() -> FastAPI:
                 "latest_crash_date": crash_date,
                 "latest_crash_source": crash_source,
             },
+        }
+
+    # -- latest app release (for the Flutter app's update check) ---------
+    @app.get("/app/latest", summary="Latest published APK release")
+    def app_latest():
+        """Latest GitHub release, for the app's in-app update check.
+
+        Reads a read-only GitHub token from the GITHUB_TOKEN env var
+        (fine-grained PAT, Contents: read on Mightiest-G/redunator).
+        Without a token — or when GitHub cannot be reached — the
+        endpoint still answers 200, with nulls and a reason, so the
+        app simply skips the update check and keeps working.
+        """
+        token = os.environ.get("GITHUB_TOKEN", "")
+        if not token:
+            return _latest_release_unavailable(
+                "github_token_not_configured")
+        try:
+            resp = requests.get(
+                "https://api.github.com/repos/Mightiest-G/redunator"
+                "/releases/latest",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "redunator-backend",
+                },
+                timeout=10,
+            )
+        except Exception as e:
+            _log_line("warning", "app_latest_lookup_failed",
+                      error=str(e))
+            return _latest_release_unavailable("github_lookup_failed")
+        if resp.status_code != 200:
+            _log_line("warning", "app_latest_lookup_failed",
+                      status=resp.status_code)
+            return _latest_release_unavailable("github_lookup_failed")
+        data = resp.json()
+        tag = data.get("tag_name")
+        apk = next(
+            (a for a in data.get("assets", [])
+             if a.get("name") == "app-release.apk"),
+            None,
+        )
+        url = (apk.get("browser_download_url") if apk
+               else data.get("html_url"))
+        return {
+            "tag": tag,
+            "build": _release_build(tag),
+            "name": data.get("name"),
+            "published_at": data.get("published_at"),
+            "download_url": url,
+            "notes": (data.get("body") or "")[:500],
+            "reason": None,
         }
 
     return app

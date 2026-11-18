@@ -247,7 +247,13 @@ on "My Billing Account 2" guards it).
 - **Env vars on the service:** `HERE_API_KEY`, `CTA_BUS_API_KEY`,
   `TOMTOM_API_KEY` (all three set; TomTom was added by a second
   deploy after Gabriel supplied the key — it is NOT stored in the
-  repo or in memory).
+  repo or in memory). **`GITHUB_TOKEN` (added 2026-11-18):** a
+  read-only fine-grained PAT (Contents: read on
+  Mightiest-G/redunator) that powers `GET /app/latest`, the
+  endpoint the Flutter app's in-app update check calls. Without it
+  the endpoint still answers 200 with nulls + a reason, so the app
+  skips the check. The token value is never stored in the repo or
+  in memory.
 - **Verified live 2026-11-17 ~09:25 CST (independent curls):**
   `/health` ok, model_version 1, MAE 2.145 / RMSE 3.307, latest
   violation data 2026-10-29; `/predict_risk` cam 1413 2026-10-15 =
@@ -285,6 +291,14 @@ on "My Billing Account 2" guards it).
   `flutter pub get`, `flutter build apk --release` (retries once),
   then uploads the APK as artifact `app-release-apk` AND publishes
   a GitHub Release tagged `apk-<run-number>` with the APK attached.
+- **Build-number stamping (added 2026-11-18):** the build passes
+  `--build-number ${{ github.run_number }}`, so the APK's build
+  number equals its release number. The app's in-app update check
+  compares its own build number with `GET /app/latest` on the
+  backend (which reads the latest release via the `GITHUB_TOKEN`
+  env var) and prompts when a newer release exists. Dark mode
+  shipped in the same release (apk-4): theme setting
+  system/light/dark in Settings, dark map style included.
 - **Two fixes baked in (learned from run #1, 2026-11-17):**
   (1) the JVM tried IPv6 first for the Gradle distribution download
   and failed with "Network is unreachable" — the workflow now sets

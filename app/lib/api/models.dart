@@ -425,6 +425,41 @@ class Health {
   }
 }
 
+/// Latest published APK release, from GET /app/latest (see
+/// lib/services/update_service.dart). All fields are null when the
+/// backend could not reach GitHub (e.g. no token configured) — the
+/// [reason] field then says why. The app decides whether an update is
+/// available by comparing [build] with its own build number.
+class LatestRelease {
+  LatestRelease({
+    required this.tag,
+    required this.build,
+    required this.name,
+    required this.publishedAt,
+    required this.downloadUrl,
+    required this.notes,
+    required this.reason,
+  });
+  final String? tag;
+  final int? build;
+  final String? name;
+  final String? publishedAt;
+  final String? downloadUrl;
+  final String? notes;
+  final String? reason;
+
+  factory LatestRelease.fromJson(Map<String, dynamic> json) =>
+      LatestRelease(
+        tag: (json['tag'] as Object?)?.toString(),
+        build: (json['build'] as num?)?.toInt(),
+        name: (json['name'] as Object?)?.toString(),
+        publishedAt: (json['published_at'] as Object?)?.toString(),
+        downloadUrl: (json['download_url'] as Object?)?.toString(),
+        notes: (json['notes'] as Object?)?.toString(),
+        reason: (json['reason'] as Object?)?.toString(),
+      );
+}
+
 class UserReport {
   UserReport({
     required this.id,

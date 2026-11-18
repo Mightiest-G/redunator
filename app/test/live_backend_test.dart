@@ -61,6 +61,34 @@ void main() {
     expect((h.modelMetrics['rmse'] as num).toDouble(), closeTo(3.307, 0.01));
   });
 
+  test('live: /app/latest answers and parses (update check)', () async {
+    requireLive();
+    LatestRelease latest;
+    try {
+      latest = await client.getLatestRelease();
+    } on ApiException catch (e) {
+      // The deployed backend predates the endpoint: redeploy needed.
+      if (e.statusCode == 404) {
+        markTestSkipped(
+          '/app/latest is not on the deployed backend yet — redeploy '
+          'the backend (it ships with the new code).',
+        );
+        return;
+      }
+      rethrow;
+    }
+    // Before the GitHub token is set on the service this is nulls +
+    // a reason; after, it is the real latest release. Either way the
+    // call must succeed and parse — the app skips the check on nulls.
+    if (latest.tag != null) {
+      expect(latest.build, isNotNull);
+      expect(latest.build, greaterThan(0));
+      expect(latest.downloadUrl, contains(latest.tag!));
+    } else {
+      expect(latest.reason, isNotNull);
+    }
+  });
+
   test('live: /predict_risk cam 1413 @ 2026-10-15 (map detail sheet data)',
       () async {
     requireLive();
