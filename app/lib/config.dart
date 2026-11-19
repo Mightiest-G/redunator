@@ -22,7 +22,7 @@
 // When the key is empty, the app does NOT crash and does NOT show a
 // blank map: the Map tab shows a full-screen explanation with these
 // steps instead (see lib/widgets/missing_key_view.dart).
-const String googleMapsApiKey = 'AIzaSyCiCbbOvejHZgOREi9d4JX0X1DXbZ3co3Q';
+const String googleMapsApiKey = 'AIzaSyCf6HS2HbqpFqQ1IPn8zQADH-BCDY_Iawk';
 
 /// Default backend base URL: the live Cloud Run service
 /// (https://redunator-api-108691448805.us-central1.run.app).
