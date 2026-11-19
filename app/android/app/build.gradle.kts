@@ -19,7 +19,9 @@ android {
         applicationId = "com.redunator.redunator"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // minSdk 23 (not flutter.minSdkVersion's 21): workmanager's
+        // Android library requires 23. Safe for a modern app.
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         // Google Maps API key: single source of truth is lib/config.dart
         // (const String googleMapsApiKey). Read it here so the Android

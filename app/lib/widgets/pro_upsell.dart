@@ -51,7 +51,9 @@ class ProUpsellCard extends StatelessWidget {
                   'proximity alerts that warn you as you approach a '
                   'high-risk camera, saved intersections with spike '
                   'alerts, 7- and 30-day risk trends, the safest time '
-                  'to leave for a route, and a custom alert distance. '
+                  'to leave for a route, a custom alert distance, '
+                  'background alerts that keep watching while the app '
+                  'is closed, and a 07:00 morning risk digest. '
                   'The map and intersection queries stay free.',
                 ),
                 const SizedBox(height: 12),

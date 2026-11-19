@@ -100,15 +100,22 @@ shows the exact error and the OSRM URL to check in a browser.
 
 - **Foreground: fully supported.** The watcher runs while the app is
   open (any tab).
-- **Background: NOT supported in this build.** Android allows
-  background location only with the user-granted "Allow all the time"
-  permission plus a foreground service; iOS only with "Always"
-  permission plus the location background mode, and iOS may still
-  throttle it. This app runs no background service, so alerts pause
-  when the app is backgrounded or killed, and resume when reopened.
-  The Settings screen states this in plain language. Adding a
-  foreground service is the known follow-up if Gabriel wants true
-  background alerts.
+- **Background: Pro only, via a WorkManager periodic task**
+  (`lib/services/background_alerts.dart`). About every 15 minutes
+  (the Android minimum) it checks the nearest camera
+  (`GET /live/risk`) and sends a local notification when the user is
+  within their Pro alert distance of a HIGH-risk camera — at most
+  one alert per camera per day. It needs the notification permission
+  and location "Allow all the time" (Android 11+ grants that only
+  from Settings). Android may defer a run in Doze / battery saver,
+  so a background alert can arrive late; the foreground watcher is
+  still the prompt one. No Firebase/FCM: the phone does the check
+  itself. Non-Pro users get no background checks at all.
+- **Morning digest (Pro):** a daily local notification at 07:00
+  device-local time with today's predicted risk for the user's saved
+  intersections plus the safest time to leave (estimates), scheduled
+  with flutter_local_notifications and refreshed by the same
+  background run (which is also how it survives a reboot).
 
 ## Build (this VM — proxy recipe from API_REFERENCE.md)
 
@@ -291,16 +298,20 @@ Declared in `android/app/src/main/AndroidManifest.xml` (Flutter
 template + plugin requirements):
 - `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` — proximity
   alerts (geolocator): the app watches the user's position and warns
-  near a high-risk camera. Foreground only; no background location
-  permission is requested in this build (see below).
+  near a high-risk camera. Foreground while the app is open; Pro
+  background alerts use `ACCESS_BACKGROUND_LOCATION` ("Allow all
+  the time", granted from Settings on Android 11+).
 - `INTERNET` — all backend calls (`/predict_risk`, `/live/risk`,
   …) plus OSRM routing.
-- `POST_NOTIFICATIONS` (Android 13+) — only relevant if alerts ever
-  move to notifications; the current build alerts in-app with audio
-  (audioplayers), not notifications.
+- `POST_NOTIFICATIONS` (Android 13+) — Pro background alerts and
+  the morning digest are local notifications.
+- `RECEIVE_BOOT_COMPLETED` — the periodic background work resumes
+  after a reboot.
+- `SCHEDULE_EXACT_ALARM` — lets the 07:00 digest land on time;
+  denied means inexact scheduling instead.
 - `FOREGROUND_SERVICE` — not requested; no foreground service runs.
-  Background alerts are NOT implemented (see Settings screen text):
-  alerts pause when the app is backgrounded or killed.
+  Background alerts use a scheduled WorkManager task, not a
+  persistent service.
 
 ## Files
 

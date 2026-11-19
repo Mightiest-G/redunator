@@ -1,16 +1,21 @@
 // Settings screen: alert distance (default 300 m), risk threshold
 // (default 75%), backend base URL, Google Maps API key status, units,
-// plus backend health, alert-sound test, feedback, and the honest
-// background-location note. Persisted locally with shared_preferences.
+// plus backend health, alert-sound test, feedback, Pro background
+// alerts + morning digest, and the honest background-location note.
+// Persisted locally with shared_preferences.
 import 'dart:async';
 
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
+import 'package:geolocator/geolocator.dart';
 
 import '../api/client.dart';
 import '../api/models.dart';
 import '../config.dart';
+import '../services/background_alerts.dart';
 import '../services/cache_service.dart';
+import '../services/morning_digest.dart';
 import '../services/proximity_service.dart';
+import '../services/saved_service.dart';
 import '../services/settings_service.dart';
 import '../services/sound_service.dart';
 import '../services/subscription_service.dart';
@@ -25,6 +30,9 @@ class SettingsScreen extends StatefulWidget {
     required this.proximity,
     required this.sound,
     required this.subscription,
+    required this.backgroundAlerts,
+    required this.digest,
+    required this.saved,
     required this.onSettingsChanged,
   });
   final AppSettings settings;
@@ -32,6 +40,9 @@ class SettingsScreen extends StatefulWidget {
   final ProximityService proximity;
   final SoundService sound;
   final SubscriptionService subscription;
+  final BackgroundAlertsService backgroundAlerts;
+  final MorningDigestService digest;
+  final SavedService saved;
   final VoidCallback onSettingsChanged;
 
   @override
@@ -50,12 +61,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _versionLabel = '…';
   bool _checkingUpdate = false;
   String? _updateText;
+  String? _bgStatusText;
+  bool _bgNeedsSettings = false;
+  bool _requestingBgPermissions = false;
+  bool _sendingTestDigest = false;
+  String? _testDigestResult;
 
   @override
   void initState() {
     super.initState();
     _baseUrlController.text = widget.settings.baseUrl;
     _loadVersionLabel();
+    _refreshBackgroundStatus();
+  }
+
+  /// Permission state for the background-alerts section. Failures
+  /// just leave the status text empty (the section still works).
+  Future<void> _refreshBackgroundStatus() async {
+    try {
+      final st = await widget.backgroundAlerts.permissionStatus();
+      if (!mounted) return;
+      setState(() {
+        _bgStatusText = st.ready
+            ? 'Ready: notifications allowed, location "Allow all the time".'
+            : 'Notifications: ${st.notificationsGranted ? 'allowed' : 'not allowed'} • '
+                  'Location: ${_locationLabel(st.location)}.';
+        _bgNeedsSettings =
+            st.location == LocationPermission.whileInUse ||
+            st.location == LocationPermission.denied;
+      });
+    } catch (_) {
+      // Status is informational only.
+    }
+  }
+
+  static String _locationLabel(LocationPermission p) {
+    switch (p) {
+      case LocationPermission.always:
+        return 'Allow all the time';
+      case LocationPermission.whileInUse:
+        return 'While using the app';
+      case LocationPermission.deniedForever:
+        return 'Denied permanently';
+      case LocationPermission.denied:
+        return 'Denied';
+      case LocationPermission.unableToDetermine:
+        return 'Unknown';
+    }
+  }
+
+  Future<void> _requestBackgroundPermissions() async {
+    setState(() => _requestingBgPermissions = true);
+    try {
+      await widget.backgroundAlerts.requestPermissions();
+      // Exact alarms make the 07:00 digest land on time; a denial
+      // just falls back to inexact scheduling.
+      await widget.backgroundAlerts.requestExactAlarmsPermission();
+    } catch (_) {
+      // Permission flow failures are reported via the status text.
+    } finally {
+      if (mounted) setState(() => _requestingBgPermissions = false);
+    }
+    await _refreshBackgroundStatus();
+  }
+
+  Future<void> _sendTestDigest() async {
+    setState(() {
+      _sendingTestDigest = true;
+      _testDigestResult = null;
+    });
+    final ok = await widget.digest.sendTestDigest(client: widget.client);
+    if (!mounted) return;
+    setState(() {
+      _sendingTestDigest = false;
+      _testDigestResult = ok
+          ? 'Test digest sent — check your notifications.'
+          : 'Could not build the digest (are you online?).';
+    });
   }
 
   Future<void> _loadVersionLabel() async {
@@ -208,11 +290,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Alerts work while the app is open (foreground). Background '
-          'alerts are NOT supported in this version: Android/iOS only '
-          'allow background location with an "always" permission plus a '
-          'foreground service / background mode, which this build does '
-          'not run. If you leave the app, alerts pause until you reopen it.',
+          'Alerts work while the app is open. Pro users can also '
+          'enable background alerts below, which keep watching while '
+          'the app is closed.',
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -279,6 +359,186 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     widget.onSettingsChanged();
                   },
                 ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Background alerts',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isPro) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pro keeps watching even when the app is closed: '
+                    'about every 15 minutes it checks whether you are '
+                    'near a HIGH-risk camera and sends a local '
+                    'notification — at most one per camera per day. '
+                    'Needs the notification permission and location '
+                    'set to "Allow all the time".',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Background alerts'),
+                  subtitle: Text(
+                    _bgStatusText ?? 'Checking permissions…',
+                  ),
+                  value: s.backgroundAlertsEnabled,
+                  onChanged: (v) async {
+                    unawaited(widget.sound.playTap());
+                    await s.setBackgroundAlertsEnabled(v);
+                    try {
+                      await widget.backgroundAlerts.syncWithPro(
+                        isPro: widget.subscription.isPro,
+                        enabled: v,
+                      );
+                    } catch (_) {
+                      // A scheduling failure leaves the toggle saved;
+                      // the next app start retries the registration.
+                    }
+                    setState(() {});
+                  },
+                ),
+                const Text(
+                  'Checks about every 15 minutes while Pro is active '
+                  '(Android may defer a run in Doze / battery saver, '
+                  'so a background alert can arrive late). Only the '
+                  'same risk lookups the app already makes leave the '
+                  'phone — no location is sent anywhere else.',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _requestingBgPermissions
+                      ? null
+                      : () {
+                          unawaited(widget.sound.playTap());
+                          _requestBackgroundPermissions();
+                        },
+                  icon: const Icon(Icons.location_on),
+                  label: Text(
+                    _requestingBgPermissions
+                        ? 'Requesting…'
+                        : 'Enable notifications & location',
+                  ),
+                ),
+                if (_bgNeedsSettings) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      unawaited(widget.sound.playTap());
+                      await widget.backgroundAlerts.openAppSettings();
+                      await _refreshBackgroundStatus();
+                    },
+                    icon: const Icon(Icons.settings),
+                    label: const Text(
+                      'Open app settings (allow location all the time)',
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Morning digest',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isPro) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pro sends a daily 07:00 summary of today’s '
+                    'predicted risk for your saved intersections, '
+                    'plus the safest time to leave (estimates). '
+                    'With nothing saved yet, the digest reminds you '
+                    'to save some.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Morning digest'),
+                  subtitle: const Text(
+                    'Daily at 07:00: today’s predicted risk for your '
+                    'saved intersections, plus the safest time to '
+                    'leave (estimates).',
+                  ),
+                  value: s.morningDigestEnabled,
+                  onChanged: (v) async {
+                    unawaited(widget.sound.playTap());
+                    await s.setMorningDigestEnabled(v);
+                    try {
+                      await widget.digest.ensureScheduled(
+                        client: widget.client,
+                        isPro: widget.subscription.isPro,
+                        enabled: v,
+                        force: true,
+                      );
+                    } catch (_) {
+                      // A scheduling failure leaves the toggle saved;
+                      // the next app start retries.
+                    }
+                    setState(() {});
+                  },
+                ),
+                const Text(
+                  'Covers your saved intersections. With none saved, '
+                  'the digest reminds you to save some instead of '
+                  'sending an empty summary.',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _sendingTestDigest
+                      ? null
+                      : () {
+                          unawaited(widget.sound.playTap());
+                          _sendTestDigest();
+                        },
+                  icon: const Icon(Icons.notifications),
+                  label: Text(
+                    _sendingTestDigest
+                        ? 'Sending…'
+                        : 'Send test digest now',
+                  ),
+                ),
+                if (_testDigestResult != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(_testDigestResult!),
+                  ),
               ],
             );
           },
@@ -457,8 +717,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text('Pro is active'),
                 subtitle: Text(
                   'Route planning, proximity alerts, saved intersections '
-                  'with spike alerts, risk trends, safest time to leave '
-                  'and a custom alert distance are unlocked.',
+                  'with spike alerts, risk trends, safest time to leave, '
+                  'a custom alert distance, background alerts and the '
+                  'morning digest are unlocked.',
                 ),
               );
             }

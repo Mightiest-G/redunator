@@ -5,13 +5,14 @@
 //
 // PLATFORM LIMITS (documented honestly — do NOT claim more):
 // - Foreground: fully supported. The watcher runs while the app is
-//   open (any tab); that is the mode this app ships.
-// - Background: Android allows background location only if the user
-//   grants "Allow all the time" location permission AND the app runs
-//   a foreground service; iOS allows it only with the "Always"
-//   permission plus the location background mode, and iOS may still
-//   throttle/suspend it. This app does NOT run a background service:
-//   when the app is backgrounded/killed, alerts stop until it is
+//   open (any tab); that is the mode this service ships.
+// - Background: this service does NOT run in the background. Pro
+//   background alerts are a separate mechanism — a WorkManager
+//   periodic task (see background_alerts.dart) that checks about
+//   every 15 minutes while the app is closed. Android may defer a
+//   run (Doze, battery saver), and it needs location "Allow all the
+//   time". When the app is backgrounded/killed and the user is NOT
+//   Pro (or background alerts are off), alerts pause until it is
 //   reopened. The Settings screen says so in plain language.
 // - A per-camera cooldown (default 5 min) prevents repeat alerts
 //   for the same camera while the user stays nearby.

@@ -70,7 +70,12 @@ class SavedService extends ChangeNotifier {
   /// saves work without it.
   RedunatorApiClient? client;
 
-  static const String _kSaved = 'saved_intersections';
+  /// SharedPreferences key for the saved list. Public so the morning
+  /// digest can read the same persisted list from the background
+  /// isolate (the in-memory list is not available there).
+  static const String prefsKey = 'saved_intersections';
+
+  static const String _kSaved = prefsKey;
 
   /// Radius (m) of the server-side alert mirroring a saved camera.
   static const double serverAlertRadiusM = 2000;

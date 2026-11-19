@@ -2,7 +2,9 @@
 //
 // WHAT PRO UNLOCKS (Gabriel's call, 2026-11-18; extended 2026-11-19):
 // Route planning, proximity alerts, saved intersections + spike
-// alerts, risk trends, safest time to leave, custom alert distance.
+// alerts, risk trends, safest time to leave, custom alert distance,
+// background alerts (15-minute WorkManager check while the app is
+// closed) and the 07:00 morning risk digest.
 // Map + Query stay free. The gate lives in one place
 // (SubscriptionService.isPro, read by RouteScreen, MapScreen,
 // SavedScreen and the detail sheet) — changing the split is a

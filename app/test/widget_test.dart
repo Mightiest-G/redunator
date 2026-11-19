@@ -12,7 +12,10 @@ import 'package:http/testing.dart';
 import 'package:redunator/api/client.dart';
 import 'package:redunator/api/models.dart';
 import 'package:redunator/screens/settings_screen.dart';
+import 'package:redunator/services/background_alerts.dart';
+import 'package:redunator/services/morning_digest.dart';
 import 'package:redunator/services/proximity_service.dart';
+import 'package:redunator/services/saved_service.dart';
 import 'package:redunator/services/settings_service.dart';
 import 'package:redunator/services/sound_service.dart';
 import 'package:redunator/services/subscription_service.dart';
@@ -77,6 +80,9 @@ void main() {
             proximity: ProximityService(),
             sound: SoundService(),
             subscription: SubscriptionService(),
+            backgroundAlerts: BackgroundAlertsService(),
+            digest: MorningDigestService(),
+            saved: SavedService(),
             onSettingsChanged: () {},
           ),
         ),

@@ -18,6 +18,9 @@ class AppSettings extends ChangeNotifier {
   static const String _kUnits = 'units';
   static const String _kThemeMode = 'theme_mode';
   static const String _kSoundEnabled = 'sound_enabled';
+  static const String _kBackgroundAlertsEnabled =
+      'background_alerts_enabled';
+  static const String _kMorningDigestEnabled = 'morning_digest_enabled';
 
   /// Default alert distance: 300 m.
   static const double defaultAlertDistanceM = 300;
@@ -43,6 +46,19 @@ class AppSettings extends ChangeNotifier {
   /// sound is separate and always plays when an alert fires).
   bool soundEnabled = true;
 
+  /// Background alerts (Pro): the 15-minute WorkManager check that
+  /// watches for HIGH-risk cameras while the app is closed. Default
+  /// ON — Pro users get the perk without digging, and it does
+  /// nothing until the notification + "Allow all the time" location
+  /// permissions are granted. The background isolate reads the same
+  /// key directly (see background_alerts.dart).
+  bool backgroundAlertsEnabled = true;
+
+  /// Morning digest (Pro): the daily 07:00 risk summary for saved
+  /// intersections. Default ON; the digest service reads the same
+  /// key from the background isolate.
+  bool morningDigestEnabled = true;
+
   bool _loaded = false;
   bool get loaded => _loaded;
 
@@ -62,6 +78,10 @@ class AppSettings extends ChangeNotifier {
     s.units = prefs.getString(_kUnits) ?? 'metric';
     s.themeMode = prefs.getString(_kThemeMode) ?? 'system';
     s.soundEnabled = prefs.getBool(_kSoundEnabled) ?? true;
+    s.backgroundAlertsEnabled =
+        prefs.getBool(_kBackgroundAlertsEnabled) ?? true;
+    s.morningDigestEnabled =
+        prefs.getBool(_kMorningDigestEnabled) ?? true;
     s._loaded = true;
     return s;
   }
@@ -75,6 +95,8 @@ class AppSettings extends ChangeNotifier {
     String units = 'metric',
     String themeMode = 'system',
     bool soundEnabled = true,
+    bool backgroundAlertsEnabled = true,
+    bool morningDigestEnabled = true,
   }) {
     final s = AppSettings._()
       ..alertDistanceM = alertDistanceM
@@ -84,6 +106,8 @@ class AppSettings extends ChangeNotifier {
       ..units = units
       ..themeMode = themeMode
       ..soundEnabled = soundEnabled
+      ..backgroundAlertsEnabled = backgroundAlertsEnabled
+      ..morningDigestEnabled = morningDigestEnabled
       .._loaded = true;
     return s;
   }
@@ -120,6 +144,8 @@ class AppSettings extends ChangeNotifier {
     await prefs.setString(_kUnits, units);
     await prefs.setString(_kThemeMode, themeMode);
     await prefs.setBool(_kSoundEnabled, soundEnabled);
+    await prefs.setBool(_kBackgroundAlertsEnabled, backgroundAlertsEnabled);
+    await prefs.setBool(_kMorningDigestEnabled, morningDigestEnabled);
   }
 
   Future<void> setAlertDistanceM(double v) async {
@@ -172,6 +198,22 @@ class AppSettings extends ChangeNotifier {
   /// via the widget tree (the service reads settings.soundEnabled).
   Future<void> setSoundEnabled(bool v) async {
     soundEnabled = v;
+    await _save();
+    notifyListeners();
+  }
+
+  /// Background alerts toggle (Pro). The WorkManager task is
+  /// (un)registered by the caller after this saves.
+  Future<void> setBackgroundAlertsEnabled(bool v) async {
+    backgroundAlertsEnabled = v;
+    await _save();
+    notifyListeners();
+  }
+
+  /// Morning digest toggle (Pro). The digest is (un)scheduled by
+  /// the caller after this saves.
+  Future<void> setMorningDigestEnabled(bool v) async {
+    morningDigestEnabled = v;
     await _save();
     notifyListeners();
   }
