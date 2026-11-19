@@ -6,12 +6,19 @@ plugins {
 
 android {
     namespace = "com.redunator.redunator"
-    compileSdk = flutter.compileSdkVersion
+    // compileSdk 37 (not flutter.compileSdkVersion's 36):
+    // flutter_local_notifications requires compiling against Android
+    // API 37+ and core library desugaring (apk-8 build failed on
+    // checkReleaseAarMetadata without both). targetSdk stays at
+    // flutter.targetSdkVersion (36) — the Play Store requirement.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications (see compileSdk note).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -54,6 +61,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    // Core library desugaring runtime, required by
+    // flutter_local_notifications (see compileSdk note above).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 kotlin {
