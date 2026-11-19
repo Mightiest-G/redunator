@@ -1,9 +1,12 @@
 // Redunator Pro subscriptions (Google Play Billing via in_app_purchase).
 //
-// WHAT PRO UNLOCKS (Gabriel's call, 2026-11-18): Route planning and
-// proximity alerts. Map + Query stay free. The gate lives in one place
-// (SubscriptionService.isPro, read by RouteScreen and MapScreen) —
-// changing the split is a one-line change per screen.
+// WHAT PRO UNLOCKS (Gabriel's call, 2026-11-18; extended 2026-11-19):
+// Route planning, proximity alerts, saved intersections + spike
+// alerts, risk trends, safest time to leave, custom alert distance.
+// Map + Query stay free. The gate lives in one place
+// (SubscriptionService.isPro, read by RouteScreen, MapScreen,
+// SavedScreen and the detail sheet) — changing the split is a
+// one-line change per screen.
 //
 // PRODUCT IDS — these exact IDs must be created in Google Play Console
 // (one subscription, two base plans) before any purchase can work.
@@ -27,10 +30,7 @@ import '../api/client.dart';
 /// Play Console product IDs for the Pro subscription (base plans).
 const String kProMonthlyProductId = 'redunator_pro_monthly';
 const String kProYearlyProductId = 'redunator_pro_yearly';
-const Set<String> kProProductIds = {
-  kProMonthlyProductId,
-  kProYearlyProductId,
-};
+const Set<String> kProProductIds = {kProMonthlyProductId, kProYearlyProductId};
 
 /// Thin seam over the billing plugin so tests can use a fake store.
 /// The real implementation delegates to InAppPurchase.instance.
@@ -45,7 +45,7 @@ abstract class BillingStore {
 
 class RealBillingStore implements BillingStore {
   RealBillingStore([InAppPurchase? store])
-      : _store = store ?? InAppPurchase.instance;
+    : _store = store ?? InAppPurchase.instance;
   final InAppPurchase _store;
 
   @override
@@ -123,10 +123,7 @@ class SubscriptionService extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
     await _loadCachedPro();
-    _purchaseSub = _store.purchaseStream.listen(
-      _onPurchases,
-      onError: (_) {},
-    );
+    _purchaseSub = _store.purchaseStream.listen(_onPurchases, onError: (_) {});
     try {
       storeAvailable = await _store.isAvailable();
     } catch (_) {
@@ -201,8 +198,7 @@ class SubscriptionService extends ChangeNotifier {
         case PurchaseStatus.restored:
           await _handleVerifiedPurchase(purchase);
         case PurchaseStatus.error:
-          lastError =
-              purchase.error?.message ?? 'Purchase failed. Try again.';
+          lastError = purchase.error?.message ?? 'Purchase failed. Try again.';
           notifyListeners();
         case PurchaseStatus.pending:
         case PurchaseStatus.canceled:
@@ -271,11 +267,7 @@ class SubscriptionService extends ChangeNotifier {
     if (expired) await prefs.setBool(_kIsPro, false);
   }
 
-  Future<void> _setPro(
-    bool value, {
-    String? productId,
-    String? token,
-  }) async {
+  Future<void> _setPro(bool value, {String? productId, String? token}) async {
     final prefs = await SharedPreferences.getInstance();
     _isPro = value;
     await prefs.setBool(_kIsPro, value);

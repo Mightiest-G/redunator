@@ -1,5 +1,5 @@
 // Redunator — Chicago red-light-camera ticket-risk predictor.
-// Tabs: Map (home), Query, Route, Settings.
+// Tabs: Map (home), Query, Saved (Pro), Route (Pro), Settings.
 // The backend client is rebuilt whenever the base URL / user ID
 // changes in Settings. No mock data anywhere in the shipped app:
 // every number comes from the backend or from the on-device cache
@@ -13,9 +13,11 @@ import 'config.dart';
 import 'screens/map_screen.dart';
 import 'screens/query_screen.dart';
 import 'screens/route_screen.dart';
+import 'screens/saved_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/auth_service.dart';
 import 'services/proximity_service.dart';
+import 'services/saved_service.dart';
 import 'services/settings_service.dart';
 import 'services/sound_service.dart';
 import 'services/subscription_service.dart';
@@ -73,6 +75,7 @@ class _HomePageState extends State<_HomePage> {
   final SoundService _sound = SoundService();
   final TokenService _auth = TokenService();
   SubscriptionService? _subscription;
+  SavedService? _saved;
   int _tab = 0;
   bool _updateChecked = false;
 
@@ -85,6 +88,9 @@ class _HomePageState extends State<_HomePage> {
     // stream and query the store for the Pro products.
     _subscription = SubscriptionService(client: _client);
     unawaited(_subscription!.init());
+    // Saved intersections (Pro): local list + server mirror.
+    _saved = SavedService(client: _client);
+    unawaited(_saved!.load());
     // Device auth: load/create the device UUID, point the
     // subscription service at it, and mint the JWT in the background
     // (public endpoints work without it; user endpoints wait for it).
@@ -119,15 +125,15 @@ class _HomePageState extends State<_HomePage> {
     await UpdateService.showUpdateDialog(context, info);
   }
 
-  RedunatorApiClient _buildClient(AppSettings s) => RedunatorApiClient(
-        baseUrl: s.baseUrl,
-      );
+  RedunatorApiClient _buildClient(AppSettings s) =>
+      RedunatorApiClient(baseUrl: s.baseUrl);
 
   void _onSettingsChanged() {
     setState(() {
       _client = _buildClient(widget.settings);
       _wireAuth(_client!);
       _subscription?.client = _client;
+      _saved?.client = _client;
       // The new client has no token yet; the cached one (if any) is
       // re-attached from storage.
       unawaited(_auth.ensureToken(_client!));
@@ -139,6 +145,7 @@ class _HomePageState extends State<_HomePage> {
     _proximity.dispose();
     _sound.dispose();
     _subscription?.dispose();
+    _saved?.dispose();
     _client?.close();
     super.dispose();
   }
@@ -151,9 +158,7 @@ class _HomePageState extends State<_HomePage> {
     _sound.enabled = settings.soundEnabled;
     final client = _client;
     if (client == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final screens = <Widget>[
       MapScreen(
@@ -163,9 +168,17 @@ class _HomePageState extends State<_HomePage> {
         proximity: _proximity,
         sound: _sound,
         subscription: _subscription!,
+        saved: _saved!,
         onBaseUrlChanged: _onSettingsChanged,
       ),
       QueryScreen(client: client, sound: _sound),
+      SavedScreen(
+        client: client,
+        settings: settings,
+        sound: _sound,
+        subscription: _subscription!,
+        saved: _saved!,
+      ),
       RouteScreen(
         client: client,
         proximity: _proximity,
@@ -203,6 +216,7 @@ class _HomePageState extends State<_HomePage> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Query'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmark), label: 'Saved'),
           BottomNavigationBarItem(icon: Icon(Icons.route), label: 'Route'),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

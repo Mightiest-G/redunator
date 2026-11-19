@@ -42,16 +42,17 @@ class ProUpsellCard extends StatelessWidget {
                 if (showTitle) ...[
                   const Text(
                     'Redunator Pro',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                 ],
                 const Text(
-                  'Pro unlocks route planning with risk-coloured roads '
-                  'and proximity alerts that warn you as you approach a '
-                  'high-risk camera. The map and intersection queries '
-                  'stay free.',
+                  'Pro unlocks route planning with risk-coloured roads, '
+                  'proximity alerts that warn you as you approach a '
+                  'high-risk camera, saved intersections with spike '
+                  'alerts, 7- and 30-day risk trends, the safest time '
+                  'to leave for a route, and a custom alert distance. '
+                  'The map and intersection queries stay free.',
                 ),
                 const SizedBox(height: 12),
                 if (!sub.storeAvailable)
@@ -68,11 +69,13 @@ class ProUpsellCard extends StatelessWidget {
                     'after the next app update.',
                   )
                 else
-                  ...sub.products.map((p) => _ProductRow(
-                        product: p,
-                        subscription: sub,
-                        sound: sound,
-                      )),
+                  ...sub.products.map(
+                    (p) => _ProductRow(
+                      product: p,
+                      subscription: sub,
+                      sound: sound,
+                    ),
+                  ),
                 if (sub.lastError != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),

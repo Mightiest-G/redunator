@@ -19,11 +19,14 @@ import '../services/cache_service.dart';
 import '../services/map_style.dart';
 import '../services/proximity_service.dart';
 import '../services/risk.dart';
+import '../services/saved_service.dart';
 import '../services/settings_service.dart';
 import '../services/sound_service.dart';
 import '../services/subscription_service.dart';
 import '../widgets/hourly_chart.dart';
 import '../widgets/missing_key_view.dart';
+import '../widgets/pro_upsell.dart';
+import '../widgets/trend_section.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({
@@ -33,6 +36,7 @@ class MapScreen extends StatefulWidget {
     required this.proximity,
     required this.sound,
     required this.subscription,
+    required this.saved,
     required this.onBaseUrlChanged,
   });
   final AppSettings settings;
@@ -40,6 +44,7 @@ class MapScreen extends StatefulWidget {
   final ProximityService proximity;
   final SoundService sound;
   final SubscriptionService subscription;
+  final SavedService saved;
   final VoidCallback onBaseUrlChanged;
 
   @override
@@ -56,6 +61,11 @@ class _MapScreenState extends State<MapScreen> {
   String? _cacheAge;
   String? _alertMessage;
 
+  /// Last effective alert distance / threshold the watcher was started
+  /// with — used to restart it only when a setting actually changes.
+  double? _lastAlertDistanceM;
+  double? _lastRiskThreshold;
+
   static const LatLng _chicago = LatLng(41.8781, -87.6298);
 
   @override
@@ -65,13 +75,33 @@ class _MapScreenState extends State<MapScreen> {
     // the proximity watcher when the tab is already loaded; stop it
     // if Pro lapses.
     widget.subscription.addListener(_onSubscriptionChanged);
+    // Restart the watcher when the alert distance or threshold
+    // changes (free slider or Pro distance in Settings).
+    widget.settings.addListener(_onSettingsChanged);
     _load();
   }
 
   @override
   void dispose() {
     widget.subscription.removeListener(_onSubscriptionChanged);
+    widget.settings.removeListener(_onSettingsChanged);
     super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    final dist = widget.settings.alertDistanceFor(widget.subscription.isPro);
+    final threshold = widget.settings.riskThresholdScore;
+    if (_lastAlertDistanceM == dist && _lastRiskThreshold == threshold) {
+      return;
+    }
+    _lastAlertDistanceM = dist;
+    _lastRiskThreshold = threshold;
+    if (widget.subscription.isPro &&
+        _cameras.isNotEmpty &&
+        widget.proximity.running) {
+      unawaited(_startProximity());
+    }
   }
 
   void _onSubscriptionChanged() {
@@ -106,9 +136,7 @@ class _MapScreenState extends State<MapScreen> {
           i + 100 > cameras.length ? cameras.length : i + 100,
         );
         final batch = await widget.client.predictRiskBatch(
-          chunk
-              .map((c) => {'camera_id': c.cameraId})
-              .toList(),
+          chunk.map((c) => {'camera_id': c.cameraId}).toList(),
         );
         for (final p in batch.results) {
           predictions[p.cameraId] = p;
@@ -154,10 +182,13 @@ class _MapScreenState extends State<MapScreen> {
     // Proximity alerts are a Pro feature. Free users see a note on
     // the Settings screen instead of a silently dead watcher.
     if (!widget.subscription.isPro) return;
+    final dist = widget.settings.alertDistanceFor(widget.subscription.isPro);
+    _lastAlertDistanceM = dist;
+    _lastRiskThreshold = widget.settings.riskThresholdScore;
     await widget.proximity.start(
       cameras: _cameras,
       predictions: _predictions,
-      alertDistanceM: widget.settings.alertDistanceM,
+      alertDistanceM: dist,
       riskThresholdScore: widget.settings.riskThresholdScore,
       onAlert: (cam, dist) {
         if (!mounted) return;
@@ -170,29 +201,32 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Set<Marker> get _markers {
-    return _cameras.map((cam) {
-      if (cam.latitude == null || cam.longitude == null) {
-        return null;
-      }
-      final pred = _predictions[cam.cameraId];
-      final score = pred?.riskScore ?? cam.typicalWeekdayScore;
-      return Marker(
-        markerId: MarkerId(cam.cameraId),
-        position: LatLng(cam.latitude!, cam.longitude!),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          markerHueForScore(score),
-        ),
-        infoWindow: InfoWindow(
-          title: cam.intersection,
-          snippet:
-              'Risk ${formatPercent(score)} · ${pred?.riskLevel ?? cam.typicalWeekdayBand}',
-        ),
-        onTap: () {
-          unawaited(widget.sound.playTap());
-          _showDetail(cam);
-        },
-      );
-    }).whereType<Marker>().toSet();
+    return _cameras
+        .map((cam) {
+          if (cam.latitude == null || cam.longitude == null) {
+            return null;
+          }
+          final pred = _predictions[cam.cameraId];
+          final score = pred?.riskScore ?? cam.typicalWeekdayScore;
+          return Marker(
+            markerId: MarkerId(cam.cameraId),
+            position: LatLng(cam.latitude!, cam.longitude!),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              markerHueForScore(score),
+            ),
+            infoWindow: InfoWindow(
+              title: cam.intersection,
+              snippet:
+                  'Risk ${formatPercent(score)} · ${pred?.riskLevel ?? cam.typicalWeekdayBand}',
+            ),
+            onTap: () {
+              unawaited(widget.sound.playTap());
+              _showDetail(cam);
+            },
+          );
+        })
+        .whereType<Marker>()
+        .toSet();
   }
 
   Future<void> _showDetail(Intersection cam) async {
@@ -205,6 +239,8 @@ class _MapScreenState extends State<MapScreen> {
         client: widget.client,
         settings: widget.settings,
         sound: widget.sound,
+        subscription: widget.subscription,
+        saved: widget.saved,
       ),
     );
   }
@@ -335,15 +371,15 @@ class _Banner extends StatelessWidget {
   final Color color;
   @override
   Widget build(BuildContext context) => Card(
-        color: color,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-        ),
-      );
+    color: color,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+      ),
+    ),
+  );
 }
 
 class _LegendCard extends StatelessWidget {
@@ -351,20 +387,20 @@ class _LegendCard extends StatelessWidget {
   final AppSettings settings;
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text('Camera risk', style: TextStyle(fontWeight: FontWeight.bold)),
-              _LegendRow(Colors.green, 'Low <40%'),
-              _LegendRow(Colors.amber, 'Medium 40–70%'),
-              _LegendRow(Colors.red, 'High >70%'),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Text('Camera risk', style: TextStyle(fontWeight: FontWeight.bold)),
+          _LegendRow(Colors.green, 'Low <40%'),
+          _LegendRow(Colors.amber, 'Medium 40–70%'),
+          _LegendRow(Colors.red, 'High >70%'),
+        ],
+      ),
+    ),
+  );
 }
 
 class _LegendRow extends StatelessWidget {
@@ -373,17 +409,21 @@ class _LegendRow extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 10, height: 10, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 10, height: 10, color: color),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(fontSize: 12)),
+    ],
+  );
 }
 
 /// Detail sheet for one camera: daily prediction, 24-hour curve with
 /// hourly bands, reasons, recent daily trends, and Report Spike.
+/// Pro extras (gated on SubscriptionService.isPro): a Save button
+/// (saved intersections live on the Saved tab) and the 7/30-day risk
+/// trend section with a sparkline. Free users see the upsell card
+/// in the trend section instead.
 class IntersectionDetailSheet extends StatefulWidget {
   const IntersectionDetailSheet({
     super.key,
@@ -392,12 +432,16 @@ class IntersectionDetailSheet extends StatefulWidget {
     required this.client,
     required this.settings,
     required this.sound,
+    required this.subscription,
+    required this.saved,
   });
   final Intersection camera;
   final Prediction? prediction;
   final RedunatorApiClient client;
   final AppSettings settings;
   final SoundService sound;
+  final SubscriptionService subscription;
+  final SavedService saved;
 
   @override
   State<IntersectionDetailSheet> createState() =>
@@ -492,7 +536,8 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
             children: [
               Chip(
                 label: Text('Risk ${formatPercent(score)} · $band'),
-                backgroundColor: markerColorForScore(score).withValues(alpha: 0.2),
+                backgroundColor: markerColorForScore(score)
+                    .withValues(alpha: 0.2),
               ),
               const SizedBox(width: 8),
               if (pred != null)
@@ -529,9 +574,7 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
           if (pred != null && _selectedHour != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _hourLabel(pred.hourEntry(_selectedHour!)),
-              ),
+              child: Text(_hourLabel(pred.hourEntry(_selectedHour!))),
             ),
           if (pred != null && pred.reasons.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -539,12 +582,14 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
               'Why this risk',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            ...pred.reasons.map((r) => ListTile(
-                  leading: const Icon(Icons.info_outline, size: 18),
-                  title: Text(r),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                )),
+            ...pred.reasons.map(
+              (r) => ListTile(
+                leading: const Icon(Icons.info_outline, size: 18),
+                title: Text(r),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
           ],
           if (_trends != null) ...[
             const SizedBox(height: 8),
@@ -563,6 +608,15 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
               padding: const EdgeInsets.only(top: 8),
               child: Text('Trends unavailable: $_trendsError'),
             ),
+          // Pro risk trends: 7/30-day direction, percent change and a
+          // daily sparkline. Free users get the upsell card here.
+          const SizedBox(height: 16),
+          const Text(
+            'Risk trends',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          _buildTrendSection(),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -583,9 +637,66 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
             'active at this camera right now.',
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
+          const SizedBox(height: 16),
+          _buildSaveRow(),
         ],
       ),
     );
+  }
+
+  /// Save button (Pro): saves this camera to the Saved tab, or
+  /// removes it. Free users see a locked row instead — the upsell
+  /// card already appears in the Risk trends section above, so this
+  /// row does not add a second one.
+  Widget _buildSaveRow() {
+    final cam = widget.camera;
+    if (!widget.subscription.isPro) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.lock_outline),
+        title: Text('Save this intersection'),
+        subtitle: Text(
+          'Saved intersections with spike alerts are a Pro feature.',
+        ),
+      );
+    }
+    final isSaved = widget.saved.isSaved(cam.cameraId);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          unawaited(widget.sound.playTap());
+          if (isSaved) {
+            await widget.saved.unsave(cam.cameraId);
+          } else {
+            await widget.saved.save(cam);
+          }
+          if (mounted) setState(() {});
+        },
+        icon: Icon(isSaved ? Icons.bookmark_remove : Icons.bookmark_add),
+        label: Text(
+          isSaved ? 'Saved — tap to remove' : 'Save this intersection',
+        ),
+      ),
+    );
+  }
+
+  /// Pro trend section: the 7/30-day direction, percent change and
+  /// sparkline when Pro (and trends loaded); the upsell card for free
+  /// users; a loading/error note while trends are in flight.
+  Widget _buildTrendSection() {
+    if (!widget.subscription.isPro) {
+      return ProUpsellCard(
+        subscription: widget.subscription,
+        sound: widget.sound,
+        showTitle: false,
+      );
+    }
+    if (_trends != null) return TrendSection(trends: _trends!);
+    if (_trendsError != null) {
+      return Text('Trends unavailable: $_trendsError');
+    }
+    return const Text('Loading trends…');
   }
 
   String _hourLabel(HourlyEntry? e) {

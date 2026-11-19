@@ -73,9 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() => _checkingUpdate = false);
     if (info == null) {
-      setState(
-        () => _updateText = 'You are up to date ($_versionLabel).',
-      );
+      setState(() => _updateText = 'You are up to date ($_versionLabel).');
       return;
     }
     final opened = await UpdateService.showUpdateDialog(context, info);
@@ -84,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _updateText = opened
           ? 'Downloading ${info.tag}…'
           : 'Update ${info.tag} is available — tap Check for updates '
-              'again to download it.';
+                'again to download it.';
     });
   }
 
@@ -151,8 +149,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'risk_threshold': widget.settings.riskThresholdPct >= 75
             ? 'HIGH'
             : widget.settings.riskThresholdPct >= 40
-                ? 'MEDIUM'
-                : 'LOW',
+            ? 'MEDIUM'
+            : 'LOW',
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -179,9 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Alert distance: ${s.formatDistance(s.alertDistanceM)}',
-        ),
+        Text('Alert distance: ${s.formatDistance(s.alertDistanceM)}'),
         Slider(
           value: s.alertDistanceM,
           min: 50,
@@ -233,6 +229,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(height: 32),
         const Text(
+          'Pro alert distance',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isPro) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Choose how far out proximity alerts warn you — '
+                    '100 m, 250 m, 500 m or 1 km. A Pro feature; free '
+                    'users keep the slider above.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'How far out proximity alerts warn you. Applies '
+                  'immediately — the watcher restarts with the new '
+                  'distance.',
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<double>(
+                  segments: AppSettings.proAlertDistanceOptions
+                      .map(
+                        (d) => ButtonSegment<double>(
+                          value: d,
+                          label: Text(s.formatDistance(d)),
+                        ),
+                      )
+                      .toList(),
+                  selected: {s.proAlertDistanceM},
+                  onSelectionChanged: (sel) async {
+                    unawaited(widget.sound.playTap());
+                    await s.setProAlertDistanceM(sel.first);
+                    setState(() {});
+                    widget.onSettingsChanged();
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
           'Backend',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
@@ -267,7 +319,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       unawaited(widget.sound.playTap());
                       _checkHealth();
                     },
-              child: Text(_checkingHealth ? 'Checking…' : 'Check backend health'),
+              child: Text(
+                _checkingHealth ? 'Checking…' : 'Check backend health',
+              ),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
@@ -277,7 +331,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       unawaited(widget.sound.playTap());
                       _syncToBackend();
                     },
-              child: Text(_syncingSettings ? 'Saving…' : 'Save settings to backend'),
+              child: Text(
+                _syncingSettings ? 'Saving…' : 'Save settings to backend',
+              ),
             ),
           ],
         ),
@@ -307,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             hasMapsApiKey
                 ? 'The map is enabled.'
                 : 'Add the key in lib/config.dart and rebuild — see the '
-                    'Map tab for step-by-step instructions.',
+                      'Map tab for step-by-step instructions.',
           ),
         ),
         const Divider(height: 32),
@@ -378,9 +434,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onPressed: () async {
             unawaited(widget.sound.testTap());
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Tap sound played.')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Tap sound played.')));
           },
           icon: const Icon(Icons.volume_up),
           label: const Text('Test tap sound'),
@@ -400,7 +456,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 leading: Icon(Icons.workspace_premium, color: Colors.amber),
                 title: Text('Pro is active'),
                 subtitle: Text(
-                  'Route planning and proximity alerts are unlocked.',
+                  'Route planning, proximity alerts, saved intersections '
+                  'with spike alerts, risk trends, safest time to leave '
+                  'and a custom alert distance are unlocked.',
                 ),
               );
             }
@@ -479,10 +537,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _feedbackRating,
               items: List.generate(
                 5,
-                (i) => DropdownMenuItem(
-                  value: i + 1,
-                  child: Text('${i + 1}'),
-                ),
+                (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
               ),
               onChanged: (v) {
                 if (v != null) setState(() => _feedbackRating = v);

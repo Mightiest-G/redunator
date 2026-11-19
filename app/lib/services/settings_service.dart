@@ -12,6 +12,7 @@ class AppSettings extends ChangeNotifier {
   AppSettings._();
 
   static const String _kAlertDistanceM = 'alert_distance_m';
+  static const String _kProAlertDistanceM = 'pro_alert_distance_m';
   static const String _kRiskThresholdPct = 'risk_threshold_pct';
   static const String _kBaseUrl = 'base_url';
   static const String _kUnits = 'units';
@@ -21,10 +22,18 @@ class AppSettings extends ChangeNotifier {
   /// Default alert distance: 300 m.
   static const double defaultAlertDistanceM = 300;
 
+  /// Pro alert distance: how far out proximity alerts warn Pro users.
+  /// Options 100 m / 250 m / 500 m / 1 km; default 250 m. Stored
+  /// separately from the free slider (alertDistanceM) so a lapsed Pro
+  /// subscription does not clobber the free setting.
+  static const List<double> proAlertDistanceOptions = [100, 250, 500, 1000];
+  static const double defaultProAlertDistanceM = 250;
+
   /// Default risk threshold: 75% (risk_score > 0.75 triggers alerts).
   static const double defaultRiskThresholdPct = 75;
 
   double alertDistanceM = defaultAlertDistanceM;
+  double proAlertDistanceM = defaultProAlertDistanceM;
   double riskThresholdPct = defaultRiskThresholdPct;
   String baseUrl = defaultBaseUrl;
   String units = 'metric'; // metric | imperial
@@ -42,6 +51,11 @@ class AppSettings extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     s.alertDistanceM =
         prefs.getDouble(_kAlertDistanceM) ?? defaultAlertDistanceM;
+    final storedPro = prefs.getDouble(_kProAlertDistanceM);
+    s.proAlertDistanceM =
+        storedPro != null && proAlertDistanceOptions.contains(storedPro)
+        ? storedPro
+        : defaultProAlertDistanceM;
     s.riskThresholdPct =
         prefs.getDouble(_kRiskThresholdPct) ?? defaultRiskThresholdPct;
     s.baseUrl = prefs.getString(_kBaseUrl) ?? defaultBaseUrl;
@@ -55,6 +69,7 @@ class AppSettings extends ChangeNotifier {
   /// Test/dev helper: build settings without touching storage.
   static AppSettings withValues({
     double alertDistanceM = defaultAlertDistanceM,
+    double proAlertDistanceM = defaultProAlertDistanceM,
     double riskThresholdPct = defaultRiskThresholdPct,
     String baseUrl = defaultBaseUrl,
     String units = 'metric',
@@ -63,6 +78,7 @@ class AppSettings extends ChangeNotifier {
   }) {
     final s = AppSettings._()
       ..alertDistanceM = alertDistanceM
+      ..proAlertDistanceM = proAlertDistanceM
       ..riskThresholdPct = riskThresholdPct
       ..baseUrl = baseUrl
       ..units = units
@@ -98,6 +114,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kAlertDistanceM, alertDistanceM);
+    await prefs.setDouble(_kProAlertDistanceM, proAlertDistanceM);
     await prefs.setDouble(_kRiskThresholdPct, riskThresholdPct);
     await prefs.setString(_kBaseUrl, baseUrl);
     await prefs.setString(_kUnits, units);
@@ -110,6 +127,20 @@ class AppSettings extends ChangeNotifier {
     await _save();
     notifyListeners();
   }
+
+  /// Pro alert distance. Only the four offered values stick; anything
+  /// else is ignored (the stored value never becomes invalid).
+  Future<void> setProAlertDistanceM(double v) async {
+    if (!proAlertDistanceOptions.contains(v)) return;
+    proAlertDistanceM = v;
+    await _save();
+    notifyListeners();
+  }
+
+  /// The alert distance the proximity watcher should use right now:
+  /// the Pro distance for Pro users, the free slider otherwise.
+  double alertDistanceFor(bool isPro) =>
+      isPro ? proAlertDistanceM : alertDistanceM;
 
   Future<void> setRiskThresholdPct(double v) async {
     riskThresholdPct = v.clamp(10, 100);
