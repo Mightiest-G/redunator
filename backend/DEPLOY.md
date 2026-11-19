@@ -192,19 +192,22 @@ Optional — only if he wants them:
   which commits the promoted files + pointer and pushes to main
   via the retrain deploy key (`~/.ssh/redunator-retrain` — public
   key fingerprint SHA256:GkqeJCHCweD5Jd7cQ9JTWZuiLedYsJdC73EE52U6CXM,
-  still to be added to the repo's Deploy keys with Write access);
-  a Cloud Build trigger on pushes touching model/backend files
-  then builds + deploys (`cloudbuild.yaml` now has the deploy
-  step — `gcloud run deploy --image` preserves existing env vars).
+  added to the repo's Deploy keys with Write access 2026-11-18);
+  a Cloud Build trigger ('redunator-model-redeploy', Enabled
+  2026-11-18, push to ^main$, file filter `redunator_brain_v*`,
+  `live_model.json`, `backend/**`, `cloudbuild.yaml`, serving
+  parquet; Cloud Build SA granted `roles/run.admin` +
+  `roles/iam.serviceAccountUser`) then builds + deploys
+  (`cloudbuild.yaml` has the deploy step — `gcloud run deploy
+  --image` preserves existing env vars — plus an explicit
+  `docker push` step before it: `images:` alone only pushes after
+  all steps succeed, so without it the deploy step fails with
+  'Image not found', as the d0f7471 trigger build did 2026-11-19;
+  fixed 2026-11-19).
   The backend re-reads `live_model.json` per request
   (`backend/model_service.py`, mtime check) and reloads the ONNX
   session when the pointer moves, so a redeployed image serves the
-  new model with no restart. STILL OPEN: add the deploy key to the
-  repo (browser) + create the Cloud Build trigger with its file
-  filter (`redunator_brain_v*`, `live_model.json`, `backend/**`,
-  `cloudbuild.yaml`, serving parquet) — and grant the Cloud Build
-  service account `roles/run.admin` + `roles/iam.serviceAccountUser`
-  so the trigger can deploy.
+  new model with no restart.
 
 ## 5. Getting back to the free tier (levers 1+2 DONE 2026-11-17 — still not enough)
 

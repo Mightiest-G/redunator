@@ -7,6 +7,10 @@
 # preserves the service's existing env vars, so a rebuild never drops
 # a key. The trigger that calls this config must filter to model /
 # backend files (see DEPLOY.md §4) so app-only pushes don't redeploy.
+# The explicit `docker push` step is REQUIRED: `images:` below only
+# pushes after ALL steps succeed, so without it the deploy step runs
+# before the fresh tag exists in the registry and fails with
+# "Image ... not found" (seen 2026-11-19 on the d0f7471 trigger build).
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -16,6 +20,10 @@ steps:
       - '-f'
       - 'backend/Dockerfile'
       - '.'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/redunator/redunator-api/redunator-api:$SHORT_SHA'
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
