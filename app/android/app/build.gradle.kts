@@ -1,7 +1,26 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release signing (apk-14): a stable keystore, injected at build time
+// from GitHub Actions secrets (see .github/workflows/build-apk.yml).
+// android/key.properties is gitignored and never committed; without it
+// the build falls back to debug signing, so local dev still works.
+// Every Actions build used to sign with a fresh debug key, which made
+// Android refuse in-app updates ("package conflicts with an existing
+// package", seen on apk-12 -> apk-13, 2026-11-19).
+// Loaded at the top level (not inside android {}) — the canonical
+// Flutter placement; inside android {} the java.* references do not
+// resolve and the script fails to compile (run #14, 2026-11-20).
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -54,24 +73,17 @@ android {
         versionName = flutter.versionName
     }
 
-    // Release signing (apk-14): a stable keystore, injected at build
-    // time from GitHub Actions secrets (see .github/workflows/build-apk.yml).
-    // android/key.properties is gitignored and never committed; without
-    // it the build falls back to debug signing, so local dev still works.
-    // Every Actions build used to sign with a fresh debug key, which made
-    // Android refuse in-app updates ("package conflicts with an existing
-    // package", seen on apk-12 -> apk-13, 2026-11-19).
-    val keystoreProperties = java.util.Properties()
-    val keystorePropertiesFile = rootProject.file("key.properties")
-    if (keystorePropertiesFile.exists()) {
-        keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
-        signingConfigs {
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+    signingConfigs {
+        // Created unconditionally so the block always exists; the
+        // values are empty when key.properties is absent (local dev)
+        // and the config is then never used (see buildTypes below).
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias", "")
+            keyPassword = keystoreProperties.getProperty("keyPassword", "")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let {
+                file(it)
             }
+            storePassword = keystoreProperties.getProperty("storePassword", "")
         }
     }
 
