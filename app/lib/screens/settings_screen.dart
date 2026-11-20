@@ -158,13 +158,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _updateText = 'You are up to date ($_versionLabel).');
       return;
     }
-    final opened = await UpdateService.showUpdateDialog(context, info);
+    final wantsDownload = await UpdateService.showUpdateDialog(context, info);
+    if (!mounted) return;
+    if (!wantsDownload) {
+      setState(() => _updateText = 'Update ${info.tag} is available — tap '
+          'Check for updates again to download it.');
+      return;
+    }
+    // The download runs in the app with real progress (see
+    // UpdateService.downloadAndInstall); the status line below only
+    // reports its outcome — it never claims a download is running.
+    final outcome = await UpdateService.downloadAndInstall(context, info);
     if (!mounted) return;
     setState(() {
-      _updateText = opened
-          ? 'Downloading ${info.tag}…'
-          : 'Update ${info.tag} is available — tap Check for updates '
-                'again to download it.';
+      _updateText = switch (outcome) {
+        UpdateDownloadOutcome.downloaded =>
+          'Downloaded ${info.tag} — the installer should be open.',
+        UpdateDownloadOutcome.failed =>
+          'Download failed — tap Check for updates to retry.',
+        UpdateDownloadOutcome.cancelled => 'Download cancelled.',
+        UpdateDownloadOutcome.browserFallback =>
+          'Opened ${info.tag} in your browser — check your Downloads.',
+      };
     });
   }
 

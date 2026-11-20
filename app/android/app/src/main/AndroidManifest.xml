@@ -9,6 +9,13 @@
          SCHEDULE_EXACT_ALARM lets the 07:00 digest land on time
          (falls back to inexact scheduling when denied). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The in-app updater downloads the release APK itself and opens
+         the system installer (see UpdateService.downloadAndInstall).
+         Android 8+ shows a one-time "allow installs from Redunator"
+         prompt when the installer opens. This permission is only for
+         sideloaded updates; once the app ships on Google Play, Play's
+         own update flow replaces it. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />

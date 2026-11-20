@@ -195,7 +195,9 @@ class _HomePageState extends State<_HomePage> {
     if (client == null || !mounted) return;
     final info = await UpdateService.checkForUpdate(client);
     if (info == null || !mounted) return;
-    await UpdateService.showUpdateDialog(context, info);
+    final wantsDownload = await UpdateService.showUpdateDialog(context, info);
+    if (!wantsDownload || !mounted) return;
+    await UpdateService.downloadAndInstall(context, info);
   }
 
   RedunatorApiClient _buildClient(AppSettings s) =>
