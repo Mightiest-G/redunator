@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Flutter Gradle plugin turns on resource shrinking for release
+builds (FlutterPlugin.kt: isMinifyEnabled + isShrinkResources). The
+notification channel sounds are looked up by NAME at runtime
+(RawResourceAndroidNotificationSound), so the shrinker cannot see
+any reference to them and drops the files from the APK — apk-16
+shipped without them. Keep all five raw sounds. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/proximity_alert,@raw/spike_alert,@raw/area_alert,@raw/digest_morning,@raw/digest_weekly" />
