@@ -167,7 +167,7 @@ class _QueryScreenState extends State<QueryScreen> {
                       ? const Icon(Icons.check, color: Colors.green)
                       : null,
                   onTap: () {
-                    unawaited(widget.sound.playTap());
+                    unawaited(widget.sound.playQuery());
                     setState(() {
                       _selected = cam;
                       _prediction = null;

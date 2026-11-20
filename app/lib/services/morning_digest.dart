@@ -156,13 +156,16 @@ class MorningDigestService {
     }
     try {
       final saved = _readSaved(prefs);
-      final body = saved.isEmpty
-          ? buildNoSavedDigestText()
+      final built = saved.isEmpty
+          ? (body: buildNoSavedDigestText(), hasSpike: false)
           : await _buildDigestBody(client, saved, now ?? DateTime.now());
       await _notifications.scheduleDailyDigest(
         title: 'Redunator morning digest',
-        body: body,
+        body: built.body,
         hour: kDigestHour,
+        // A digest containing a spike sounds the spike alert
+        // instead of the gentle morning one.
+        hasSpike: built.hasSpike,
       );
       await prefs.setString(kDigestScheduledDateKey, today);
     } catch (_) {
@@ -181,12 +184,13 @@ class MorningDigestService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = _readSaved(prefs);
-      final body = saved.isEmpty
-          ? buildNoSavedDigestText()
+      final built = saved.isEmpty
+          ? (body: buildNoSavedDigestText(), hasSpike: false)
           : await _buildDigestBody(client, saved, now ?? DateTime.now());
       await _notifications.showNow(
         title: 'Redunator morning digest (test)',
-        body: body,
+        body: built.body,
+        hasSpike: built.hasSpike,
       );
       return true;
     } catch (_) {
@@ -250,6 +254,7 @@ class MorningDigestService {
       await _notifications.showNow(
         title: 'Redunator weekly digest (test)',
         body: body,
+        weekly: true,
       );
       return true;
     } catch (_) {
@@ -316,8 +321,10 @@ class MorningDigestService {
   /// One batch prediction for all saved cameras, spike flags from
   /// each listed camera's 7-day trend (best-effort, skipped on
   /// failure), and the safest departure hour across the saved
-  /// cameras' hourly curves (reuse of route_risk.dart).
-  Future<String> _buildDigestBody(
+  /// cameras' hourly curves (reuse of route_risk.dart). Returns the
+  /// body plus whether any listed row is a spike — the scheduler
+  /// uses that to pick the spike alert sound.
+  Future<({String body, bool hasSpike})> _buildDigestBody(
     RedunatorApiClient client,
     List<SavedIntersection> saved,
     DateTime now,
@@ -359,6 +366,9 @@ class MorningDigestService {
       cameraIds: saved.map((s) => s.cameraId).toList(),
       currentHour: kDigestHour,
     );
-    return buildDigestText(rows: rows, safest: safest);
+    return (
+      body: buildDigestText(rows: rows, safest: safest),
+      hasSpike: rows.any((r) => r.isSpike),
+    );
   }
 }

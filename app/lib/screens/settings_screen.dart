@@ -355,17 +355,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'the app is closed.',
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () async {
-            unawaited(widget.sound.playTap());
-            await widget.proximity.testSound();
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Alert sound played.')),
-            );
-          },
-          icon: const Icon(Icons.volume_up),
-          label: const Text('Test alert sound'),
+        const Text(
+          'Sounds',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Every alert kind has its own sound, so you can tell what '
+          'happened without looking at the phone — and every app '
+          'function has its own tap sound. Play each one below.',
+        ),
+        const SizedBox(height: 4),
+        ...AlertSound.values.map(
+          (a) => Row(
+            children: [
+              Expanded(child: Text(a.label)),
+              IconButton(
+                tooltip: 'Play: ${a.label}',
+                icon: const Icon(Icons.play_arrow),
+                onPressed: () => unawaited(widget.sound.testAlert(a)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text('App sounds'),
+        ...UiSound.values.map(
+          (u) => Row(
+            children: [
+              Expanded(child: Text(u.label)),
+              IconButton(
+                tooltip: 'Play: ${u.label}',
+                icon: const Icon(Icons.play_arrow),
+                onPressed: () => unawaited(widget.sound.testUi(u)),
+              ),
+            ],
+          ),
         ),
         const Divider(height: 32),
         const Text(

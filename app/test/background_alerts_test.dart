@@ -126,8 +126,15 @@ class _FakeGateway implements NotificationGateway {
   Future<void> showNow({
     required String title,
     required String body,
+    bool hasSpike = false,
+    bool weekly = false,
   }) async {
-    shownNow.add({'title': title, 'body': body});
+    shownNow.add({
+      'title': title,
+      'body': body,
+      'hasSpike': hasSpike,
+      'weekly': weekly,
+    });
   }
 
   @override
@@ -135,8 +142,14 @@ class _FakeGateway implements NotificationGateway {
     required String title,
     required String body,
     required int hour,
+    bool hasSpike = false,
   }) async {
-    scheduledDigests.add({'title': title, 'body': body, 'hour': hour});
+    scheduledDigests.add({
+      'title': title,
+      'body': body,
+      'hour': hour,
+      'hasSpike': hasSpike,
+    });
   }
 
   @override

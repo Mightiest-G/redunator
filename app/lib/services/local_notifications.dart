@@ -3,18 +3,44 @@
 // the phone computes everything itself from data it fetches from the
 // Redunator backend. Pro-gating lives in the callers
 // (BackgroundAlertsService, MorningDigestService), never here.
+//
+// ONE CHANNEL PER ALERT KIND (apk-16): each kind has its own sound,
+// so Gabriel can tell what happened without looking at the phone.
+// Android fixes a channel's sound at creation, so a kind's sound
+// can only change with a new channel id — these ids are versioned
+// per kind for exactly that reason. The sound files live in
+// android/app/src/main/res/raw/ (referenced by name, no extension)
+// and in assets/ under the same name for in-app playback (see
+// sound_service.dart — keep both copies in sync).
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Notification channel for background proximity alerts: high
+/// Proximity alert: a HIGH-risk camera within range. High
 /// importance so it shows heads-up with sound.
-const String kAlertChannelId = 'redunator_alerts';
+const String kProximityChannelId = 'redunator_alert_proximity';
 
-/// Notification channel for the morning digest: a quiet daily
-/// summary, default importance.
-const String kDigestChannelId = 'redunator_digest';
+/// Spike digest: the daily digest, when it contains a spike
+/// (>1.5x a saved camera's 7-day mean). High importance — a spike
+/// day deserves the same urgency as a proximity alert.
+const String kSpikeChannelId = 'redunator_alert_spike';
+
+/// Area-watch alert: a HIGH camera inside a watched area
+/// (Exclusive). High importance.
+const String kAreaChannelId = 'redunator_alert_area';
+
+/// Morning digest: the daily 07:00 summary, default importance.
+const String kDailyDigestChannelId = 'redunator_digest_daily';
+
+/// Weekly digest: the Sunday 07:00 summary, default importance.
+const String kWeeklyDigestChannelId = 'redunator_digest_weekly';
+
+// Retired in apk-16 (replaced by the per-kind channels above).
+// Deleted on init so stale channels do not linger in system
+// settings on phones that already created them.
+const String kLegacyAlertChannelId = 'redunator_alerts';
+const String kLegacyDigestChannelId = 'redunator_digest';
 
 /// Fixed id for the daily digest notification — rescheduling with
 /// the same id replaces it. Background alerts use per-camera ids
@@ -45,14 +71,24 @@ abstract class NotificationGateway {
   });
 
   /// Shows a notification right now (used for the digest test send).
-  Future<void> showNow({required String title, required String body});
+  /// [hasSpike] routes a daily digest containing a spike to the
+  /// spike channel (its own sound); [weekly] routes a weekly digest
+  /// to the weekly channel.
+  Future<void> showNow({
+    required String title,
+    required String body,
+    bool hasSpike = false,
+    bool weekly = false,
+  });
 
   /// Schedules the daily digest at [hour]:00 device-local time,
   /// repeating every day. Replaces any previously scheduled digest.
+  /// [hasSpike] routes it to the spike channel (its own sound).
   Future<void> scheduleDailyDigest({
     required String title,
     required String body,
     required int hour,
+    bool hasSpike = false,
   });
 
   Future<void> cancelDigest();
@@ -133,21 +169,63 @@ class LocalNotifications implements NotificationGateway {
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    await android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        kAlertChannelId,
-        'Redunator alerts',
-        description: 'High-risk camera proximity alerts',
-        importance: Importance.high,
+    // One channel per alert kind, each with its own sound file
+    // (res/raw, name without extension).
+    const channels = [
+      (
+        kProximityChannelId,
+        'High-risk camera nearby',
+        'A HIGH-risk camera is within range',
+        Importance.high,
+        'proximity_alert',
       ),
-    );
-    await android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        kDigestChannelId,
+      (
+        kSpikeChannelId,
+        'Spike in the morning digest',
+        'A saved camera is spiking above its 7-day mean',
+        Importance.high,
+        'spike_alert',
+      ),
+      (
+        kAreaChannelId,
+        'High-risk camera in a watched area',
+        'A HIGH camera is inside a watched area',
+        Importance.high,
+        'area_alert',
+      ),
+      (
+        kDailyDigestChannelId,
         'Redunator morning digest',
-        description: 'Daily 07:00 risk summary for saved intersections',
-        importance: Importance.defaultImportance,
+        'Daily 07:00 risk summary for saved intersections',
+        Importance.defaultImportance,
+        'digest_morning',
       ),
+      (
+        kWeeklyDigestChannelId,
+        'Redunator weekly digest',
+        'Sunday 07:00 review of the saved intersections’ week',
+        Importance.defaultImportance,
+        'digest_weekly',
+      ),
+    ];
+    for (final (id, name, description, importance, sound) in channels) {
+      await android?.createNotificationChannel(
+        AndroidNotificationChannel(
+          id,
+          name,
+          description: description,
+          importance: importance,
+          sound: RawResourceAndroidNotificationSound(sound),
+        ),
+      );
+    }
+    // Retire the pre-apk-16 shared channels so they stop showing in
+    // system settings. Safe to call when they were never created.
+    await android?.deleteNotificationChannel(
+      channelId: kLegacyAlertChannelId,
+    );
+    await android?.deleteNotificationChannel(
+      channelId: kLegacyDigestChannelId,
     );
   }
 
@@ -174,11 +252,14 @@ class LocalNotifications implements NotificationGateway {
           '($band), ${_formatDistance(distanceM)} away. Estimates.',
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kAlertChannelId,
-          'Redunator alerts',
-          channelDescription: 'High-risk camera proximity alerts',
+          kProximityChannelId,
+          'High-risk camera nearby',
+          channelDescription: 'A HIGH-risk camera is within range',
           importance: Importance.high,
           priority: Priority.high,
+          sound: const RawResourceAndroidNotificationSound(
+            'proximity_alert',
+          ),
         ),
       ),
     );
@@ -188,19 +269,43 @@ class LocalNotifications implements NotificationGateway {
   Future<void> showNow({
     required String title,
     required String body,
+    bool hasSpike = false,
+    bool weekly = false,
   }) async {
+    // Route the test digest to the channel matching its kind, so
+    // the sound heard is the sound the real digest will make.
+    var channelId = kDailyDigestChannelId;
+    var channelName = 'Redunator morning digest';
+    var channelDescription =
+        'Daily 07:00 risk summary for saved intersections';
+    var sound = 'digest_morning';
+    var importance = Importance.defaultImportance;
+    if (weekly) {
+      channelId = kWeeklyDigestChannelId;
+      channelName = 'Redunator weekly digest';
+      channelDescription =
+          'Sunday 07:00 review of the saved intersections’ week';
+      sound = 'digest_weekly';
+    } else if (hasSpike) {
+      channelId = kSpikeChannelId;
+      channelName = 'Spike in the morning digest';
+      channelDescription =
+          'A saved camera is spiking above its 7-day mean';
+      sound = 'spike_alert';
+      importance = Importance.high;
+    }
     await _plugin.show(
       id: kDigestNotificationId,
       title: title,
       body: body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kDigestChannelId,
-          'Redunator morning digest',
-          channelDescription:
-              'Daily 07:00 risk summary for saved intersections',
-          importance: Importance.defaultImportance,
+          channelId,
+          channelName,
+          channelDescription: channelDescription,
+          importance: importance,
           priority: Priority.defaultPriority,
+          sound: RawResourceAndroidNotificationSound(sound),
           // BigText so the multi-line digest is fully readable when
           // the notification is expanded.
           styleInformation: BigTextStyleInformation(body),
@@ -214,6 +319,7 @@ class LocalNotifications implements NotificationGateway {
     required String title,
     required String body,
     required int hour,
+    bool hasSpike = false,
   }) async {
     await ensureTimeZone();
     final now = tz.TZDateTime.now(tz.local);
@@ -228,6 +334,14 @@ class LocalNotifications implements NotificationGateway {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     final exact = await canScheduleExactAlarms();
+    final channelId = hasSpike ? kSpikeChannelId : kDailyDigestChannelId;
+    final channelName = hasSpike
+        ? 'Spike in the morning digest'
+        : 'Redunator morning digest';
+    final channelDescription = hasSpike
+        ? 'A saved camera is spiking above its 7-day mean'
+        : 'Daily 07:00 risk summary for saved intersections';
+    final sound = hasSpike ? 'spike_alert' : 'digest_morning';
     await _plugin.zonedSchedule(
       id: kDigestNotificationId,
       title: title,
@@ -235,12 +349,14 @@ class LocalNotifications implements NotificationGateway {
       scheduledDate: scheduled,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kDigestChannelId,
-          'Redunator morning digest',
-          channelDescription:
-              'Daily 07:00 risk summary for saved intersections',
-          importance: Importance.defaultImportance,
+          channelId,
+          channelName,
+          channelDescription: channelDescription,
+          importance: hasSpike
+              ? Importance.high
+              : Importance.defaultImportance,
           priority: Priority.defaultPriority,
+          sound: RawResourceAndroidNotificationSound(sound),
           // BigText so the multi-line digest is fully readable when
           // the notification is expanded.
           styleInformation: BigTextStyleInformation(body),
@@ -269,11 +385,12 @@ class LocalNotifications implements NotificationGateway {
       body: body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kAlertChannelId,
-          'Redunator alerts',
-          channelDescription: 'High-risk camera proximity alerts',
+          kAreaChannelId,
+          'High-risk camera in a watched area',
+          channelDescription: 'A HIGH camera is inside a watched area',
           importance: Importance.high,
           priority: Priority.high,
+          sound: const RawResourceAndroidNotificationSound('area_alert'),
           styleInformation: BigTextStyleInformation(body),
         ),
       ),
@@ -310,12 +427,15 @@ class LocalNotifications implements NotificationGateway {
       scheduledDate: scheduled,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          kDigestChannelId,
-          'Redunator morning digest',
+          kWeeklyDigestChannelId,
+          'Redunator weekly digest',
           channelDescription:
-              'Daily 07:00 risk summary for saved intersections',
+              'Sunday 07:00 review of the saved intersections’ week',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
+          sound: const RawResourceAndroidNotificationSound(
+            'digest_weekly',
+          ),
           styleInformation: BigTextStyleInformation(body),
         ),
       ),

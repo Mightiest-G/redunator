@@ -406,7 +406,7 @@ class _RouteScreenState extends State<RouteScreen> {
                   onPressed:
                       (_origin != null && _destination != null && !_loading)
                       ? () {
-                          unawaited(widget.sound.playTap());
+                          unawaited(widget.sound.playRoute());
                           _computeRoute();
                         }
                       : null,
@@ -444,7 +444,7 @@ class _RouteScreenState extends State<RouteScreen> {
                 scores: _alternativeScores,
                 selected: _selectedRoute,
                 onSelect: (i) {
-                  unawaited(widget.sound.playTap());
+                  unawaited(widget.sound.playRoute());
                   unawaited(_selectRoute(i));
                 },
               ),

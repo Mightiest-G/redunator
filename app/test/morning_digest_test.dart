@@ -31,8 +31,15 @@ class _FakeGateway implements NotificationGateway {
   Future<void> showNow({
     required String title,
     required String body,
+    bool hasSpike = false,
+    bool weekly = false,
   }) async {
-    shownNow.add({'title': title, 'body': body});
+    shownNow.add({
+      'title': title,
+      'body': body,
+      'hasSpike': hasSpike,
+      'weekly': weekly,
+    });
   }
 
   @override
@@ -40,8 +47,14 @@ class _FakeGateway implements NotificationGateway {
     required String title,
     required String body,
     required int hour,
+    bool hasSpike = false,
   }) async {
-    scheduledDigests.add({'title': title, 'body': body, 'hour': hour});
+    scheduledDigests.add({
+      'title': title,
+      'body': body,
+      'hour': hour,
+      'hasSpike': hasSpike,
+    });
   }
 
   @override
@@ -159,7 +172,8 @@ String _savedJson() => jsonEncode([
   },
 ]);
 
-RedunatorApiClient _digestClient() => RedunatorApiClient(
+RedunatorApiClient _digestClient({double daily1413 = 53.0}) =>
+    RedunatorApiClient(
   baseUrl: 'https://example.invalid',
   httpClient: MockClient((req) async {
     if (req.url.path == '/predict_risk/batch') {
@@ -169,7 +183,7 @@ RedunatorApiClient _digestClient() => RedunatorApiClient(
             _predictionJson(
               cameraId: '1413',
               name: 'LAKE SHORE DR AND BELMONT',
-              daily: 53.0,
+              daily: daily1413,
               band: 'HIGH',
             ),
             _predictionJson(
@@ -290,6 +304,9 @@ void main() {
       final first = gateway.scheduledDigests.first;
       expect(first['title'], 'Redunator morning digest');
       expect(first['hour'], 7);
+      // 53.0/day vs a 2.0 7-day mean is a spike, so the digest is
+      // routed to the spike channel (its own sound).
+      expect(first['hasSpike'], isTrue);
       final body = first['body'] as String;
       expect(body, contains('LAKE SHORE DR AND BELMONT: 53.0/day HIGH'));
       expect(body, contains('SPIKE'));
@@ -318,6 +335,26 @@ void main() {
         force: true,
       );
       expect(gateway.scheduledDigests.length, 2);
+    });
+
+    test('no spike in the digest routes to the gentle sound', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway();
+      final svc = MorningDigestService(notifications: gateway);
+      await svc.ensureScheduled(
+        client: _digestClient(daily1413: 3.0),
+        isPro: true,
+        enabled: true,
+        now: DateTime(2026, 11, 19, 8, 0),
+      );
+      expect(gateway.scheduledDigests.length, 1);
+      expect(gateway.scheduledDigests.first['hasSpike'], isFalse);
+      expect(
+        gateway.scheduledDigests.first['body'] as String,
+        isNot(contains('SPIKE')),
+      );
     });
 
     test('no saved intersections schedules the prompt text', () async {
@@ -383,6 +420,10 @@ void main() {
         gateway.shownNow.first['title'],
         'Redunator morning digest (test)',
       );
+      // The test digest carries the same spike routing as the
+      // scheduled one.
+      expect(gateway.shownNow.first['hasSpike'], isTrue);
+      expect(gateway.shownNow.first['weekly'], isFalse);
       expect(
         gateway.shownNow.first['body'] as String,
         contains('LAKE SHORE DR AND BELMONT'),
@@ -404,6 +445,25 @@ void main() {
       final ok = await svc.sendTestDigest(client: client);
       expect(ok, isFalse);
       expect(gateway.shownNow, isEmpty);
+    });
+  });
+
+  group('sendTestWeeklyDigest', () {
+    test('shows the weekly digest on the weekly channel', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway();
+      final svc = MorningDigestService(notifications: gateway);
+      final ok = await svc.sendTestWeeklyDigest(client: _digestClient());
+      expect(ok, isTrue);
+      expect(gateway.shownNow.length, 1);
+      expect(
+        gateway.shownNow.first['title'],
+        'Redunator weekly digest (test)',
+      );
+      expect(gateway.shownNow.first['weekly'], isTrue);
+      expect(gateway.shownNow.first['hasSpike'], isFalse);
     });
   });
 }

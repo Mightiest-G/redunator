@@ -243,7 +243,7 @@ class _MapScreenState extends State<MapScreen> {
   /// inside the circle gets checked by the background run, even when
   /// you are not there. Free/Pro users get a plain explanation.
   Future<void> _onMapLongPress(LatLng point) async {
-    unawaited(widget.sound.playTap());
+    unawaited(widget.sound.playWatch());
     if (!widget.subscription.isExclusive) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -346,7 +346,7 @@ class _MapScreenState extends State<MapScreen> {
                   'Risk ${formatPercent(score)} · ${pred?.riskLevel ?? cam.typicalWeekdayBand}',
             ),
             onTap: () {
-              unawaited(widget.sound.playTap());
+              unawaited(widget.sound.playPin());
               _showDetail(cam);
             },
           );
@@ -752,7 +752,7 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
               onPressed: _reporting
                   ? null
                   : () {
-                      unawaited(widget.sound.playTap());
+                      unawaited(widget.sound.playSave());
                       _reportSpike();
                     },
               icon: const Icon(Icons.report),
@@ -785,7 +785,7 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
         width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: () async {
-            unawaited(widget.sound.playTap());
+            unawaited(widget.sound.playSave());
             await widget.saved.unsave(cam.cameraId);
             if (mounted) setState(() {});
           },
@@ -812,7 +812,7 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () async {
-          unawaited(widget.sound.playTap());
+          unawaited(widget.sound.playSave());
           await widget.saved.save(cam);
           if (mounted) setState(() {});
         },

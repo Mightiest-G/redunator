@@ -35,5 +35,14 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/alert.wav
     - assets/tap.wav
+    - assets/pin.wav
+    - assets/save.wav
+    - assets/query.wav
+    - assets/route.wav
+    - assets/watch.wav
+    - assets/proximity_alert.wav
+    - assets/spike_alert.wav
+    - assets/area_alert.wav
+    - assets/digest_morning.wav
+    - assets/digest_weekly.wav

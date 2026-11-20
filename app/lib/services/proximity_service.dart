@@ -24,6 +24,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../api/models.dart';
+import 'sound_service.dart';
 
 typedef AlertCallback = void Function(Intersection camera, double distanceM);
 
@@ -175,7 +176,7 @@ class ProximityService {
   Future<void> _playAlert() async {
     try {
       await _audio.stop();
-      await _audio.play(AssetSource('alert.wav'));
+      await _audio.play(AssetSource(AlertSound.proximity.asset));
     } catch (_) {
       // Audio must never crash the app; the visual alert still shows.
     }
