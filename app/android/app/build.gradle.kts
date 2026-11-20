@@ -54,11 +54,36 @@ android {
         versionName = flutter.versionName
     }
 
+    // Release signing (apk-14): a stable keystore, injected at build
+    // time from GitHub Actions secrets (see .github/workflows/build-apk.yml).
+    // android/key.properties is gitignored and never committed; without
+    // it the build falls back to debug signing, so local dev still works.
+    // Every Actions build used to sign with a fresh debug key, which made
+    // Android refuse in-app updates ("package conflicts with an existing
+    // package", seen on apk-12 -> apk-13, 2026-11-19).
+    val keystoreProperties = java.util.Properties()
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+        signingConfigs {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Stable release key when key.properties exists (CI);
+            // debug signing otherwise (local dev).
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

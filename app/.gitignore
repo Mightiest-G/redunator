@@ -1,3 +1,9 @@
+# Release signing keystore — NEVER commit these. The keystore is
+# injected at build time from GitHub Actions secrets (apk-14).
+android/key.properties
+android/app/upload-keystore.jks
+**/upload-keystore.jks
+
 # Miscellaneous
 *.class
 *.log

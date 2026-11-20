@@ -55,6 +55,29 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      # Stable release signing (apk-14): the keystore lives only in
+      # GitHub Actions secrets — never in the repo. Without this step
+      # every build signs with a fresh debug key and Android refuses
+      # in-app updates (apk-12 -> apk-13 conflict, 2026-11-19).
+      # Secrets (all set 2026-11-19): ANDROID_KEYSTORE_BASE64 (base64
+      # of upload-keystore.jks), ANDROID_KEYSTORE_PASSWORD,
+      # ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Passwords are base64
+      # (A-Za-z0-9+/= only), so the unquoted heredoc below is safe.
+      - name: Set up release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/android/app/upload-keystore.jks
+          cat > app/android/key.properties <<EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
       # Retry once: the Gradle distribution download can fail transiently.
       # --build-number stamps the GitHub run number into the APK, so the
       # app's in-app update check can compare it with the latest
