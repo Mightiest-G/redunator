@@ -22,9 +22,16 @@ const String kDigestChannelId = 'redunator_digest';
 /// other.
 const int kDigestNotificationId = 1001;
 
+/// Fixed id for the weekly (Sunday) digest notification.
+const int kWeeklyDigestNotificationId = 1002;
+
 /// Smallest Android notification id used for background alerts.
 /// The id is this base + (cameraId.hashCode % 100000).
 const int kBackgroundAlertIdBase = 2000;
+
+/// Smallest Android notification id used for area-watch alerts.
+/// The id is this base + (areaId.hashCode % 100000).
+const int kAreaAlertIdBase = 3000;
 
 /// Gateway seam so services and tests can fake notifications without
 /// touching platform channels.
@@ -49,6 +56,26 @@ abstract class NotificationGateway {
   });
 
   Future<void> cancelDigest();
+
+  /// Shows an area-watch alert right now (Exclusive): a HIGH camera
+  /// inside one of the user's watched areas.
+  Future<void> showAreaAlert({
+    required String areaId,
+    required String areaName,
+    required String body,
+  });
+
+  /// Schedules the weekly digest on [weekday] at [hour]:00
+  /// device-local time, repeating every week. Replaces any
+  /// previously scheduled weekly digest.
+  Future<void> scheduleWeeklyDigest({
+    required String title,
+    required String body,
+    required int weekday,
+    required int hour,
+  });
+
+  Future<void> cancelWeeklyDigest();
 
   /// Android 13+ runtime notification permission. True when granted
   /// (or when the platform has no such permission).
@@ -228,6 +255,80 @@ class LocalNotifications implements NotificationGateway {
 
   @override
   Future<void> cancelDigest() => _plugin.cancel(id: kDigestNotificationId);
+
+  @override
+  Future<void> showAreaAlert({
+    required String areaId,
+    required String areaName,
+    required String body,
+  }) async {
+    final id = kAreaAlertIdBase + (areaId.hashCode.abs() % 100000);
+    await _plugin.show(
+      id: id,
+      title: 'High-risk camera in $areaName',
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          kAlertChannelId,
+          'Redunator alerts',
+          channelDescription: 'High-risk camera proximity alerts',
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> scheduleWeeklyDigest({
+    required String title,
+    required String body,
+    required int weekday,
+    required int hour,
+  }) async {
+    await ensureTimeZone();
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+    );
+    // Advance to the next occurrence of the requested weekday.
+    var daysAhead = (weekday - scheduled.weekday) % 7;
+    scheduled = scheduled.add(Duration(days: daysAhead));
+    if (!scheduled.isAfter(now)) {
+      scheduled = scheduled.add(const Duration(days: 7));
+    }
+    final exact = await canScheduleExactAlarms();
+    await _plugin.zonedSchedule(
+      id: kWeeklyDigestNotificationId,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          kDigestChannelId,
+          'Redunator morning digest',
+          channelDescription:
+              'Daily 07:00 risk summary for saved intersections',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      ),
+      androidScheduleMode: exact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  @override
+  Future<void> cancelWeeklyDigest() =>
+      _plugin.cancel(id: kWeeklyDigestNotificationId);
 
   @override
   Future<bool> requestNotificationPermission() async {

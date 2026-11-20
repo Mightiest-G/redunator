@@ -48,6 +48,14 @@ class _RouteScreenState extends State<RouteScreen> {
   Intersection? _destination;
   RouteResult? _route;
   List<_NearCamera> _nearCameras = [];
+
+  /// Route comparison (Exclusive): all fetched routes plus their
+  /// risk scores (summed typical-weekday score of near-route
+  /// cameras — lower is safer). Empty for non-Exclusive users, who
+  /// get the single fastest route.
+  List<RouteResult> _alternatives = [];
+  List<double> _alternativeScores = [];
+  int _selectedRoute = 0;
   SafestDeparture? _safest;
   bool _safestLoading = false;
   bool _loading = false;
@@ -120,19 +128,38 @@ class _RouteScreenState extends State<RouteScreen> {
       _error = null;
       _route = null;
       _nearCameras = [];
+      _alternatives = [];
+      _alternativeScores = [];
+      _selectedRoute = 0;
       _safest = null;
       _safestLoading = false;
     });
     try {
       final service = RouteService(googleMapsApiKey: googleMapsApiKey);
-      final route = await service.getRoute(
-        LatLngPoint(from.latitude!, from.longitude!),
-        LatLngPoint(to.latitude!, to.longitude!),
-      );
+      // Exclusive users get alternative routes to compare by risk;
+      // everyone else gets the single fastest route.
+      final routes = widget.subscription.isExclusive
+          ? await service.getRoutes(
+              LatLngPoint(from.latitude!, from.longitude!),
+              LatLngPoint(to.latitude!, to.longitude!),
+            )
+          : [
+              await service.getRoute(
+                LatLngPoint(from.latitude!, from.longitude!),
+                LatLngPoint(to.latitude!, to.longitude!),
+              ),
+            ];
+      final route = routes.first;
       final near = _camerasNearRoute(route);
+      final scores = routes
+          .map((r) => scoreRoute(r, _cameras).score)
+          .toList();
       if (!mounted) return;
       setState(() {
         _route = route;
+        _alternatives = routes;
+        _alternativeScores = scores;
+        _selectedRoute = 0;
         _nearCameras = near;
         _loading = false;
       });
@@ -153,6 +180,23 @@ class _RouteScreenState extends State<RouteScreen> {
         _error = 'Routing failed: $e';
       });
     }
+  }
+
+  /// Switches the shown route to one of the compared alternatives:
+  /// re-derives the near-route cameras, refits the map and reloads
+  /// the safest departure for the new route.
+  Future<void> _selectRoute(int index) async {
+    if (index < 0 || index >= _alternatives.length) return;
+    if (index == _selectedRoute) return;
+    final route = _alternatives[index];
+    setState(() {
+      _selectedRoute = index;
+      _route = route;
+      _nearCameras = _camerasNearRoute(route);
+      _safest = null;
+    });
+    await _fitRoute(route);
+    unawaited(_loadSafestDeparture());
   }
 
   /// Cameras within 300 m of any sampled route point, with their
@@ -395,6 +439,15 @@ class _RouteScreenState extends State<RouteScreen> {
                     '(green <40%, yellow 40–70%, red >70%).',
                   ),
                 ),
+              if (_alternatives.length > 1) _RouteComparisonCard(
+                alternatives: _alternatives,
+                scores: _alternativeScores,
+                selected: _selectedRoute,
+                onSelect: (i) {
+                  unawaited(widget.sound.playTap());
+                  unawaited(_selectRoute(i));
+                },
+              ),
               if (_safestLoading)
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
@@ -446,6 +499,71 @@ class _NearCamera {
   _NearCamera(this.camera, this.distanceM);
   final Intersection camera;
   final double distanceM;
+}
+
+/// Route comparison card (Exclusive): the fetched routes ranked by
+/// risk score (summed typical-weekday score of cameras within 300 m
+/// — lower is safer). Tapping a row switches the map to that route.
+/// The score is a comparison of typical scores, not a prediction,
+/// and the card says so.
+class _RouteComparisonCard extends StatelessWidget {
+  const _RouteComparisonCard({
+    required this.alternatives,
+    required this.scores,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<RouteResult> alternatives;
+  final List<double> scores;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    var safest = 0;
+    for (var i = 1; i < scores.length; i++) {
+      if (scores[i] < scores[safest]) safest = i;
+    }
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: Text(
+              'Compare routes by risk (Exclusive)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ...List.generate(alternatives.length, (i) {
+            final r = alternatives[i];
+            final isSafest = i == safest;
+            return ListTile(
+              dense: true,
+              selected: i == selected,
+              leading: Icon(
+                isSafest ? Icons.shield_outlined : Icons.route,
+                color: isSafest ? Colors.green : null,
+              ),
+              title: Text(
+                '${r.label.isEmpty ? 'Route ${i + 1}' : r.label}'
+                '${isSafest ? ' — safest' : ''}',
+              ),
+              subtitle: Text(
+                '${(r.distanceM / 1000).toStringAsFixed(1)} km · '
+                'about ${(r.durationS / 60).round()} min · '
+                'risk ${scores[i].toStringAsFixed(1)} '
+                '(typical scores)',
+              ),
+              onTap: () => onSelect(i),
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }
 
 /// Safest-time-to-leave card (Pro): the departure hour with the

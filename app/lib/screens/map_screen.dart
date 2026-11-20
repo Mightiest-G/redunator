@@ -15,6 +15,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../api/client.dart';
 import '../api/models.dart';
 import '../config.dart';
+import '../services/area_watch_service.dart';
 import '../services/cache_service.dart';
 import '../services/map_style.dart';
 import '../services/proximity_service.dart';
@@ -22,6 +23,7 @@ import '../services/risk.dart';
 import '../services/saved_service.dart';
 import '../services/settings_service.dart';
 import '../services/sound_service.dart';
+import '../services/spoken_alert_service.dart';
 import '../services/subscription_service.dart';
 import '../widgets/hourly_chart.dart';
 import '../widgets/missing_key_view.dart';
@@ -37,6 +39,8 @@ class MapScreen extends StatefulWidget {
     required this.sound,
     required this.subscription,
     required this.saved,
+    required this.areaWatch,
+    required this.spoken,
     required this.onBaseUrlChanged,
   });
   final AppSettings settings;
@@ -45,6 +49,8 @@ class MapScreen extends StatefulWidget {
   final SoundService sound;
   final SubscriptionService subscription;
   final SavedService saved;
+  final AreaWatchService areaWatch;
+  final SpokenAlertService spoken;
   final VoidCallback onBaseUrlChanged;
 
   @override
@@ -78,6 +84,8 @@ class _MapScreenState extends State<MapScreen> {
     // Restart the watcher when the alert distance or threshold
     // changes (free slider or Pro distance in Settings).
     widget.settings.addListener(_onSettingsChanged);
+    // Watch-area circles redraw when areas change.
+    widget.areaWatch.addListener(_onAreasChanged);
     _load();
   }
 
@@ -85,7 +93,12 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     widget.subscription.removeListener(_onSubscriptionChanged);
     widget.settings.removeListener(_onSettingsChanged);
+    widget.areaWatch.removeListener(_onAreasChanged);
     super.dispose();
+  }
+
+  void _onAreasChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onSettingsChanged() {
@@ -192,11 +205,124 @@ class _MapScreenState extends State<MapScreen> {
       riskThresholdScore: widget.settings.riskThresholdScore,
       onAlert: (cam, dist) {
         if (!mounted) return;
+        // Spoken alerts (Exclusive): the driver hears the warning
+        // without looking at the phone.
+        if (widget.subscription.isExclusive) {
+          unawaited(
+            widget.spoken.speakAlert(
+              intersection: cam.intersection,
+              distanceM: dist,
+            ),
+          );
+        }
         setState(() {
           _alertMessage =
               'High-risk camera ahead: ${cam.intersection} — ${widget.settings.formatDistance(dist)} away';
         });
       },
+    );
+  }
+
+  /// Watch-area circles (Exclusive) drawn on the map.
+  Set<Circle> get _watchCircles {
+    return widget.areaWatch.areas
+        .map(
+          (a) => Circle(
+            circleId: CircleId('watch_${a.id}'),
+            center: LatLng(a.latitude, a.longitude),
+            radius: a.radiusM,
+            fillColor: Colors.purple.withValues(alpha: 0.15),
+            strokeColor: Colors.purple,
+            strokeWidth: 2,
+          ),
+        )
+        .toSet();
+  }
+
+  /// Long-press the map to watch an area (Exclusive): every camera
+  /// inside the circle gets checked by the background run, even when
+  /// you are not there. Free/Pro users get a plain explanation.
+  Future<void> _onMapLongPress(LatLng point) async {
+    unawaited(widget.sound.playTap());
+    if (!widget.subscription.isExclusive) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Area watch is an Exclusive feature — watch any '
+            'neighbourhood for high-risk cameras.',
+          ),
+        ),
+      );
+      return;
+    }
+    final nameController = TextEditingController();
+    var radiusM = kDefaultWatchAreaRadiusM;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Watch this area'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'The background check will alert you when ANY camera '
+                'inside this circle is HIGH today — even when you are '
+                'not there.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Area name',
+                  hintText: 'e.g. Home, Work, The Loop',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<double>(
+                segments: kWatchAreaRadiusOptions
+                    .map(
+                      (r) => ButtonSegment<double>(
+                        value: r,
+                        label: Text(
+                          r >= 1000
+                              ? '${(r / 1000).toStringAsFixed(r % 1000 == 0 ? 0 : 1)} km'
+                              : '${r.round()} m',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                selected: {radiusM},
+                onSelectionChanged: (sel) =>
+                    setDialogState(() => radiusM = sel.first),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Watch area'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true || !mounted) return;
+    await widget.areaWatch.add(
+      name: nameController.text,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      radiusM: radiusM,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Area added — the background check watches it.')),
     );
   }
 
@@ -299,6 +425,7 @@ class _MapScreenState extends State<MapScreen> {
               zoom: 11,
             ),
             markers: _markers,
+            circles: _watchCircles,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             // Dark map style follows the app theme (system/light/dark
@@ -306,6 +433,8 @@ class _MapScreenState extends State<MapScreen> {
             // MaterialApp above rebuilds on AppSettings notifications.
             style: widget.settings.isDark(context) ? darkMapStyleJson : null,
             onMapCreated: (c) => _mapController = c,
+            // Long-press adds a watch area (Exclusive).
+            onLongPress: _onMapLongPress,
           ),
         Positioned(
           top: 8,
@@ -420,10 +549,9 @@ class _LegendRow extends StatelessWidget {
 
 /// Detail sheet for one camera: daily prediction, 24-hour curve with
 /// hourly bands, reasons, recent daily trends, and Report Spike.
-/// Pro extras (gated on SubscriptionService.isPro): a Save button
-/// (saved intersections live on the Saved tab) and the 7/30-day risk
-/// trend section with a sparkline. Free users see the upsell card
-/// in the trend section instead.
+/// Tiered extras: saving (Free 3 / Pro 10 / Exclusive unlimited) and
+/// the 7/30-day risk trend section with a sparkline (Pro+). Free
+/// users see the upsell card in the trend section instead.
 class IntersectionDetailSheet extends StatefulWidget {
   const IntersectionDetailSheet({
     super.key,
@@ -644,38 +772,56 @@ class _IntersectionDetailSheetState extends State<IntersectionDetailSheet> {
     );
   }
 
-  /// Save button (Pro): saves this camera to the Saved tab, or
-  /// removes it. Free users see a locked row instead — the upsell
-  /// card already appears in the Risk trends section above, so this
-  /// row does not add a second one.
+  /// Save button (tiered): Free users may save up to 3 intersections,
+  /// Pro up to 10, Exclusive unlimited. Saves above a new cap are
+  /// grandfathered — only new saves are blocked, and the row says
+  /// exactly what the user's tier allows.
   Widget _buildSaveRow() {
     final cam = widget.camera;
-    if (!widget.subscription.isPro) {
-      return const ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(Icons.lock_outline),
-        title: Text('Save this intersection'),
-        subtitle: Text(
-          'Saved intersections with spike alerts are a Pro feature.',
+    final limit = saveLimitForTier(widget.subscription.tier);
+    final isSaved = widget.saved.isSaved(cam.cameraId);
+    if (isSaved) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            unawaited(widget.sound.playTap());
+            await widget.saved.unsave(cam.cameraId);
+            if (mounted) setState(() {});
+          },
+          icon: const Icon(Icons.bookmark_remove),
+          label: const Text('Saved — tap to remove'),
         ),
       );
     }
-    final isSaved = widget.saved.isSaved(cam.cameraId);
+    if (!widget.saved.canSaveMore(limit)) {
+      final tierName = widget.subscription.tier.name;
+      final limitText = limit == null ? 'unlimited' : '$limit';
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.lock_outline),
+        title: const Text('Save this intersection'),
+        subtitle: Text(
+          'You have saved $limitText intersections on your '
+          '${tierName[0].toUpperCase()}${tierName.substring(1)} plan. '
+          'Pro allows 10, Exclusive is unlimited.',
+        ),
+      );
+    }
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () async {
           unawaited(widget.sound.playTap());
-          if (isSaved) {
-            await widget.saved.unsave(cam.cameraId);
-          } else {
-            await widget.saved.save(cam);
-          }
+          await widget.saved.save(cam);
           if (mounted) setState(() {});
         },
-        icon: Icon(isSaved ? Icons.bookmark_remove : Icons.bookmark_add),
+        icon: const Icon(Icons.bookmark_add),
         label: Text(
-          isSaved ? 'Saved — tap to remove' : 'Save this intersection',
+          limit == null
+              ? 'Save this intersection'
+              : 'Save this intersection '
+                    '(${widget.saved.saved.length}/$limit)',
         ),
       ),
     );

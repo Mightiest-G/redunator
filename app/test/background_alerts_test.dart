@@ -145,6 +145,35 @@ class _FakeGateway implements NotificationGateway {
   }
 
   @override
+  Future<void> showAreaAlert({
+    required String areaId,
+    required String areaName,
+    required String body,
+  }) async {
+    alerts.add({'areaId': areaId, 'areaName': areaName, 'body': body});
+  }
+
+  @override
+  Future<void> scheduleWeeklyDigest({
+    required String title,
+    required String body,
+    required int weekday,
+    required int hour,
+  }) async {
+    scheduledDigests.add({
+      'title': title,
+      'body': body,
+      'weekday': weekday,
+      'hour': hour,
+    });
+  }
+
+  @override
+  Future<void> cancelWeeklyDigest() async {
+    cancelDigestCalls++;
+  }
+
+  @override
   Future<bool> requestNotificationPermission() async => true;
 
   @override

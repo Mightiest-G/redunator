@@ -109,6 +109,29 @@ void main() {
       expect(seen, contains('DELETE /user_alerts/7'));
     });
 
+    test('canSaveMore enforces the tier caps (Free 3 / Pro 10)', () async {
+      // canSaveMore is an instance check against the loaded list:
+      // Free's cap is 3, Pro's is 10, Exclusive (null) is unlimited.
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': jsonEncode([
+          for (var i = 0; i < 3; i++)
+            {
+              'camera_id': '14${10 + i}',
+              'intersection': 'CAM $i',
+              'latitude': 41.9,
+              'longitude': -87.6,
+              'server_alert_id': null,
+            },
+        ]),
+      });
+      final svc = SavedService();
+      await svc.load();
+      expect(svc.saved.length, 3);
+      expect(svc.canSaveMore(3), isFalse);
+      expect(svc.canSaveMore(10), isTrue);
+      expect(svc.canSaveMore(null), isTrue);
+    });
+
     test('saving twice is a no-op', () async {
       final seen = <String>[];
       final svc = SavedService(

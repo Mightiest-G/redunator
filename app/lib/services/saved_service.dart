@@ -77,12 +77,34 @@ class SavedService extends ChangeNotifier {
 
   static const String _kSaved = prefsKey;
 
+  /// Reads the persisted saved list without an instance (background
+  /// isolate / widget refresh). Returns [] on missing or corrupt data.
+  static List<SavedIntersection> readSavedStatic(
+    SharedPreferences prefs,
+  ) {
+    final raw = prefs.getString(prefsKey);
+    if (raw == null) return [];
+    try {
+      return (jsonDecode(raw) as List)
+          .map((e) => SavedIntersection.fromJson(e as Map<String, dynamic>))
+          .where((s) => s.cameraId.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Radius (m) of the server-side alert mirroring a saved camera.
   static const double serverAlertRadiusM = 2000;
 
   List<SavedIntersection> _saved = [];
 
   List<SavedIntersection> get saved => List.unmodifiable(_saved);
+
+  /// True when another save fits under [limit] (null = unlimited).
+  /// Grandfathering: a list already over the limit keeps its saves;
+  /// only NEW saves are blocked.
+  bool canSaveMore(int? limit) => limit == null || _saved.length < limit;
 
   bool isSaved(String cameraId) => _saved.any((s) => s.cameraId == cameraId);
 

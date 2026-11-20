@@ -30,16 +30,19 @@ class FakeBillingStore implements BillingStore {
   bool buyCalled = false;
   bool restoreCalled = false;
   bool completeCalled = false;
+  Set<String>? queriedIds;
 
   @override
   Future<bool> isAvailable() async => available;
 
   @override
-  Future<ProductDetailsResponse> queryProductDetails(Set<String> ids) async =>
-      ProductDetailsResponse(
-        productDetails: products,
-        notFoundIDs: [],
-      );
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> ids) async {
+    queriedIds = ids;
+    return ProductDetailsResponse(
+      productDetails: products,
+      notFoundIDs: [],
+    );
+  }
 
   @override
   Future<bool> buyNonConsumable(PurchaseParam param) async {
@@ -71,6 +74,15 @@ ProductDetails monthlyProduct() => ProductDetails(
       currencyCode: 'USD',
     );
 
+ProductDetails exclusiveMonthlyProduct() => ProductDetails(
+      id: kExclusiveMonthlyProductId,
+      title: 'Exclusive — monthly',
+      description: 'Redunator Exclusive, billed monthly.',
+      price: '\$5.99',
+      rawPrice: 5.99,
+      currencyCode: 'USD',
+    );
+
 PurchaseDetails purchasedMonthly({bool pendingComplete = false}) {
   final p = PurchaseDetails(
     purchaseID: 'test-purchase-1',
@@ -87,14 +99,34 @@ PurchaseDetails purchasedMonthly({bool pendingComplete = false}) {
   return p;
 }
 
+PurchaseDetails purchasedExclusive() {
+  final p = PurchaseDetails(
+    purchaseID: 'test-purchase-2',
+    productID: kExclusiveMonthlyProductId,
+    verificationData: PurchaseVerificationData(
+      localVerificationData: 'local',
+      serverVerificationData: 'test-token-456',
+      source: 'google_play',
+    ),
+    transactionDate: DateTime.now().millisecondsSinceEpoch.toString(),
+    status: PurchaseStatus.purchased,
+  );
+  return p;
+}
+
 RedunatorApiClient verifyClient(Map<String, dynamic> verdict) =>
+    verifyClientFor(kProMonthlyProductId, verdict);
+
+RedunatorApiClient verifyClientFor(
+  String productId,
+  Map<String, dynamic> verdict,
+) =>
     RedunatorApiClient(
       baseUrl: 'https://example.invalid',
       httpClient: MockClient((req) async {
         expect(req.url.path, '/subscriptions/verify');
         final body = jsonDecode(req.body) as Map<String, dynamic>;
-        expect(body['product_id'], kProMonthlyProductId);
-        expect(body['purchase_token'], 'test-token-123');
+        expect(body['product_id'], productId);
         return http.Response(jsonEncode(verdict), 200);
       }),
     );
@@ -242,6 +274,103 @@ void main() {
       await sub.init();
       expect(sub.isPro, isFalse);
       sub.dispose();
+    });
+
+    test('verified Exclusive purchase grants Exclusive (and Pro)', () async {
+      final store =
+          FakeBillingStore(products: [exclusiveMonthlyProduct()]);
+      final sub = SubscriptionService(
+        store: store,
+        client: verifyClientFor(
+          kExclusiveMonthlyProductId,
+          {'valid': true, 'product_id': kExclusiveMonthlyProductId},
+        ),
+      );
+      await sub.init();
+      store.purchaseController.add([purchasedExclusive()]);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(sub.isExclusive, isTrue);
+      expect(sub.isPro, isTrue);
+      expect(sub.tier, SubscriptionTier.exclusive);
+      // Exclusive survives a reload from the cached tier.
+      final reloaded = SubscriptionService(store: store);
+      await reloaded.init();
+      expect(reloaded.isExclusive, isTrue);
+      sub.dispose();
+      reloaded.dispose();
+    });
+
+    test('a Pro purchase never downgrades an active Exclusive', () async {
+      final store = FakeBillingStore(
+        products: [monthlyProduct(), exclusiveMonthlyProduct()],
+      );
+      // This test sends two different product ids to the backend,
+      // so the verify client accepts any of them.
+      final sub = SubscriptionService(
+        store: store,
+        client: RedunatorApiClient(
+          baseUrl: 'https://example.invalid',
+          httpClient: MockClient((req) async {
+            expect(req.url.path, '/subscriptions/verify');
+            return http.Response(jsonEncode({'valid': true}), 200);
+          }),
+        ),
+      );
+      await sub.init();
+      store.purchaseController.add([purchasedExclusive()]);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(sub.tier, SubscriptionTier.exclusive);
+      // A restored/old Pro purchase arriving afterwards must not
+      // drop the user back to Pro.
+      store.purchaseController.add([purchasedMonthly()]);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(sub.tier, SubscriptionTier.exclusive);
+      sub.dispose();
+    });
+
+    test('legacy is_pro bool migrates to the Pro tier', () async {
+      SharedPreferences.setMockInitialValues({
+        'is_pro': true,
+        'pro_product_id': kProMonthlyProductId,
+        'pro_purchase_token': 'legacy-token',
+        'pro_expiry_ms': DateTime.now()
+            .add(const Duration(days: 30))
+            .millisecondsSinceEpoch,
+      });
+      final sub = SubscriptionService(store: FakeBillingStore());
+      await sub.init();
+      expect(sub.tier, SubscriptionTier.pro);
+      expect(sub.isPro, isTrue);
+      expect(sub.isExclusive, isFalse);
+      sub.dispose();
+    });
+
+    test('init queries all four products', () async {
+      final store = FakeBillingStore(products: [monthlyProduct()]);
+      final sub = SubscriptionService(store: store);
+      await sub.init();
+      expect(store.queriedIds, kAllProductIds);
+      sub.dispose();
+    });
+
+    test('tierForProduct maps every product id', () {
+      expect(tierForProduct(kProMonthlyProductId), SubscriptionTier.pro);
+      expect(tierForProduct(kProYearlyProductId), SubscriptionTier.pro);
+      expect(
+        tierForProduct(kExclusiveMonthlyProductId),
+        SubscriptionTier.exclusive,
+      );
+      expect(
+        tierForProduct(kExclusiveYearlyProductId),
+        SubscriptionTier.exclusive,
+      );
+      expect(tierForProduct('something-else'), SubscriptionTier.free);
+    });
+
+    test('saveLimitForTier: Free 3, Pro 10, Exclusive unlimited', () {
+      expect(saveLimitForTier(SubscriptionTier.free), 3);
+      expect(saveLimitForTier(SubscriptionTier.pro), 10);
+      expect(saveLimitForTier(SubscriptionTier.exclusive), isNull);
     });
   });
 }

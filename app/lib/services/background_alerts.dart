@@ -1,13 +1,18 @@
-// Background proximity alerts (Pro). A WorkManager periodic task
-// (15 minutes — the Android minimum) runs while the app is closed:
-// it reads the current location, asks the backend for the nearest
-// camera (GET /live/risk), and fires a LOCAL notification when the
-// user is within their Pro alert distance of a HIGH-risk camera.
+// Background proximity alerts (Pro) + area watch (Exclusive). A
+// WorkManager periodic task (15 minutes — the Android minimum) runs
+// while the app is closed:
+//   - Pro: reads the current location, asks the backend for the
+//     nearest camera (GET /live/risk), and fires a LOCAL notification
+//     when the user is within their Pro alert distance of a HIGH-risk
+//     camera.
+//   - Exclusive: also evaluates every watched area — any HIGH camera
+//     inside an area alerts even when the user is nowhere near it.
 // No Firebase/FCM, no server push — the phone does the check itself.
-// The task is a no-op for non-Pro users and is cancelled outright
-// when Pro turns off. The same run also refreshes the morning
-// digest schedule, which is how the digest survives a reboot
-// (WorkManager re-runs periodic work after boot).
+// The task is a no-op for free users and is cancelled outright
+// when the tier drops to free. The same run also refreshes the
+// morning digest schedule, the weekly digest and the home-screen
+// widget, which is how they survive a reboot (WorkManager re-runs
+// periodic work after boot).
 //
 // PLATFORM LIMITS (documented honestly — do NOT claim more):
 // - The check needs location "Allow all the time" (Android 10+):
@@ -29,9 +34,12 @@ import 'package:workmanager/workmanager.dart';
 import '../api/client.dart';
 import '../api/models.dart';
 import '../config.dart';
+import 'area_watch_service.dart';
 import 'local_notifications.dart';
 import 'morning_digest.dart';
 import 'settings_service.dart';
+import 'subscription_service.dart';
+import 'widget_service.dart';
 
 /// Unique name of the periodic WorkManager task (one task does the
 /// background alert check AND the digest refresh).
@@ -149,18 +157,36 @@ class BackgroundAlertsService {
     await Workmanager().initialize(backgroundAlertsCallbackDispatcher);
   }
 
-  /// Mirrors SubscriptionService's storage keys ('is_pro',
-  /// 'pro_expiry_ms'): true only when cached Pro is set and not
-  /// expired. The background isolate cannot use SubscriptionService
-  /// (it needs a BillingStore), so it reads the same keys directly.
+  /// Mirrors SubscriptionService's storage ('subscription_tier', with
+  /// the legacy 'is_pro' fallback, and 'pro_expiry_ms'): true only
+  /// when a paid tier is cached and not expired. The background
+  /// isolate cannot use SubscriptionService (it needs a BillingStore),
+  /// so it reads the same keys directly.
   static bool isProActive(SharedPreferences prefs) {
+    final tier = prefs.getString(SubscriptionService.tierPrefsKey);
+    if (tier != null) {
+      if (tier == SubscriptionTier.free.name) return false;
+      return !_expired(prefs);
+    }
     if (prefs.getBool('is_pro') != true) return false;
-    final expiryMs = prefs.getInt('pro_expiry_ms');
-    if (expiryMs != null &&
-        expiryMs < DateTime.now().millisecondsSinceEpoch) {
+    return !_expired(prefs);
+  }
+
+  /// True only when the cached tier is Exclusive and not expired.
+  /// There is no legacy equivalent (Exclusive did not exist before
+  /// tiers), so a missing tier key means false.
+  static bool isExclusiveActive(SharedPreferences prefs) {
+    if (prefs.getString(SubscriptionService.tierPrefsKey) !=
+        SubscriptionTier.exclusive.name) {
       return false;
     }
-    return true;
+    return !_expired(prefs);
+  }
+
+  static bool _expired(SharedPreferences prefs) {
+    final expiryMs = prefs.getInt('pro_expiry_ms');
+    return expiryMs != null &&
+        expiryMs < DateTime.now().millisecondsSinceEpoch;
   }
 
   /// Registers the 15-minute background task when Pro is on and the
@@ -273,6 +299,11 @@ class BackgroundAlertsService {
           await dedupe.recordAlert(target.cameraId, now);
         }
       }
+      // Area watch (Exclusive): HIGH cameras inside any watched area,
+      // even when the user is nowhere near them.
+      if (isExclusiveActive(prefs)) {
+        await _checkWatchAreas(prefs, client);
+      }
     } finally {
       // Refresh the morning digest schedule with fresh data, even
       // when the alert check found nothing: this is also what
@@ -288,7 +319,69 @@ class BackgroundAlertsService {
       } catch (_) {
         // Best-effort only.
       }
+      // Weekly digest (Exclusive) + home-screen widget (Exclusive):
+      // same refresh, same reboot survival.
+      try {
+        await MorningDigestService(
+          notifications: _notifications,
+        ).ensureWeeklyScheduled(
+          client: client,
+          isExclusive: isExclusiveActive(prefs),
+          enabled: prefs.getBool(kWeeklyDigestEnabledKey) ?? true,
+        );
+      } catch (_) {}
+      try {
+        if (isExclusiveActive(prefs)) {
+          await WidgetService().refresh(client: client);
+        }
+      } catch (_) {}
       client.close();
+    }
+  }
+
+  /// Area-watch check for one background run: loads the persisted
+  /// areas, fetches the camera list, batch-predicts the cameras in
+  /// any area, and notifies once per area per day when a HIGH camera
+  /// is inside. Failures are swallowed — a missed run just means no
+  /// area alert this cycle.
+  Future<void> _checkWatchAreas(
+    SharedPreferences prefs,
+    RedunatorApiClient client,
+  ) async {
+    try {
+      final areas = AreaWatchService.readPersisted(prefs);
+      if (areas.isEmpty) return;
+      final cameras = await client.getIntersections(limit: 300);
+      final inAnyArea = cameras
+          .where(
+            (c) => areas.any(
+              (a) => camerasInArea([c], a).isNotEmpty,
+            ),
+          )
+          .toList();
+      if (inAnyArea.isEmpty) return;
+      final batch = await client.predictRiskBatch(
+        inAnyArea.map((c) => {'camera_id': c.cameraId}).toList(),
+      );
+      final preds = {for (final p in batch.results) p.cameraId: p};
+      final alerts = areaAlertTargets(
+        areas: areas,
+        cameras: cameras,
+        predictions: preds,
+      );
+      final dedupe = AreaAlertDedupe(prefs);
+      final now = DateTime.now();
+      for (final alert in alerts) {
+        if (!dedupe.shouldAlert(alert.area.id, now)) continue;
+        await _notifications.showAreaAlert(
+          areaId: alert.area.id,
+          areaName: alert.area.name,
+          body: buildAreaAlertText(alert),
+        );
+        await dedupe.recordAlert(alert.area.id, now);
+      }
+    } catch (_) {
+      // Best-effort only.
     }
   }
 

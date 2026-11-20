@@ -1,5 +1,5 @@
 // Redunator — Chicago red-light-camera ticket-risk predictor.
-// Tabs: Map (home), Query, Saved (Pro), Route (Pro), Settings.
+// Tabs: Map (home), Query, Saved, Route (Pro), Settings.
 // The backend client is rebuilt whenever the base URL / user ID
 // changes in Settings. No mock data anywhere in the shipped app:
 // every number comes from the backend or from the on-device cache
@@ -15,6 +15,7 @@ import 'screens/query_screen.dart';
 import 'screens/route_screen.dart';
 import 'screens/saved_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/area_watch_service.dart';
 import 'services/auth_service.dart';
 import 'services/background_alerts.dart';
 import 'services/local_notifications.dart';
@@ -23,8 +24,10 @@ import 'services/proximity_service.dart';
 import 'services/saved_service.dart';
 import 'services/settings_service.dart';
 import 'services/sound_service.dart';
+import 'services/spoken_alert_service.dart';
 import 'services/subscription_service.dart';
 import 'services/update_service.dart';
+import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +99,9 @@ class _HomePageState extends State<_HomePage> {
   final LocalNotifications _notifications = LocalNotifications();
   late final BackgroundAlertsService _bgAlerts;
   late final MorningDigestService _digest;
+  late final AreaWatchService _areaWatch;
+  late final SpokenAlertService _spoken;
+  late final WidgetService _widgetService;
   SubscriptionService? _subscription;
   SavedService? _saved;
   int _tab = 0;
@@ -108,15 +114,23 @@ class _HomePageState extends State<_HomePage> {
     _wireAuth(_client!);
     _bgAlerts = BackgroundAlertsService(notifications: _notifications);
     _digest = MorningDigestService(notifications: _notifications);
-    // Subscriptions: load cached Pro state, subscribe to the purchase
-    // stream and query the store for the Pro products.
+    _areaWatch = AreaWatchService();
+    unawaited(_areaWatch.load());
+    _spoken = SpokenAlertService(
+      enabled: widget.settings.spokenAlertsEnabled,
+    );
+    _widgetService = WidgetService();
+    // Subscriptions: load cached tier, subscribe to the purchase
+    // stream and query the store for the subscription products.
     _subscription = SubscriptionService(client: _client);
     unawaited(_subscription!.init());
-    // Pro background features follow isPro: when Pro flips on, the
-    // 15-minute background task registers and the 07:00 digest is
-    // scheduled; when it flips off, both are cancelled.
+    // Paid background features follow the tier: when Pro flips on,
+    // the 15-minute background task registers and the 07:00 digest
+    // is scheduled; when it flips off, both are cancelled. Exclusive
+    // adds the weekly digest and the home-screen widget.
     _subscription!.addListener(_syncProFeatures);
-    // Saved intersections (Pro): local list + server mirror.
+    // Saved intersections (tiered: Free 3 / Pro 10 / Exclusive
+    // unlimited): local list + server mirror.
     _saved = SavedService(client: _client);
     unawaited(_saved!.load());
     // A save/unsave changes what the digest covers, so re-schedule
@@ -137,9 +151,10 @@ class _HomePageState extends State<_HomePage> {
   }
 
   /// (Un)registers the background alert task and (un)schedules the
-  /// morning digest for the current Pro state. Scheduling must never
-  /// break the UI: failures are swallowed (Settings shows the
-  /// permission state, and the next sync retries).
+  /// morning digest for the current tier. Exclusive also gets the
+  /// weekly digest scheduled and the home-screen widget refreshed.
+  /// Scheduling must never break the UI: failures are swallowed
+  /// (Settings shows the permission state, and the next sync retries).
   Future<void> _syncProFeatures() async {
     final sub = _subscription;
     final client = _client;
@@ -157,6 +172,16 @@ class _HomePageState extends State<_HomePage> {
         enabled: widget.settings.morningDigestEnabled,
       );
     } catch (_) {}
+    try {
+      await _digest.ensureWeeklyScheduled(
+        client: client,
+        isExclusive: sub.isExclusive,
+        enabled: widget.settings.weeklyDigestEnabled,
+      );
+    } catch (_) {}
+    try {
+      if (sub.isExclusive) await _widgetService.refresh(client: client);
+    } catch (_) {}
   }
 
   void _onSavedChanged() {
@@ -171,6 +196,19 @@ class _HomePageState extends State<_HomePage> {
         force: true,
       ),
     );
+    // A save/unsave changes what the weekly digest and the widget
+    // cover, so refresh both (Exclusive only).
+    if (sub.isExclusive) {
+      unawaited(
+        _digest.ensureWeeklyScheduled(
+          client: client,
+          isExclusive: true,
+          enabled: widget.settings.weeklyDigestEnabled,
+          force: true,
+        ),
+      );
+      unawaited(_widgetService.refresh(client: client));
+    }
   }
 
   /// Points a client at the token refresh: on a 401 the client asks
@@ -226,6 +264,7 @@ class _HomePageState extends State<_HomePage> {
     _sound.dispose();
     _subscription?.dispose();
     _saved?.dispose();
+    _areaWatch.dispose();
     _client?.close();
     super.dispose();
   }
@@ -235,7 +274,9 @@ class _HomePageState extends State<_HomePage> {
     final settings = widget.settings;
     // The tap-sound toggle lives in Settings; keep the shared service
     // in sync whenever settings change (AnimatedBuilder rebuilds us).
+    // Same for the spoken-alerts toggle.
     _sound.enabled = settings.soundEnabled;
+    _spoken.enabled = settings.spokenAlertsEnabled;
     final client = _client;
     if (client == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -249,6 +290,8 @@ class _HomePageState extends State<_HomePage> {
         sound: _sound,
         subscription: _subscription!,
         saved: _saved!,
+        areaWatch: _areaWatch,
+        spoken: _spoken,
         onBaseUrlChanged: _onSettingsChanged,
       ),
       QueryScreen(client: client, sound: _sound),
@@ -274,6 +317,9 @@ class _HomePageState extends State<_HomePage> {
         backgroundAlerts: _bgAlerts,
         digest: _digest,
         saved: _saved!,
+        areaWatch: _areaWatch,
+        spoken: _spoken,
+        widgetService: _widgetService,
         onSettingsChanged: _onSettingsChanged,
       ),
     ];

@@ -1,9 +1,11 @@
-// Saved intersections (Pro): the cameras the user saved from the
-// detail sheet, each with today's predicted risk and a SPIKE flag when
-// today is >1.5x the camera's 7-day mean observed violations (see
-// trend_analysis.dart for the rule). Non-Pro users see the upsell
-// card. Data comes from the existing POST /predict_risk/batch and
-// GET /violation_trends endpoints — no new backend calls.
+// Saved intersections (tiered): the cameras the user saved from
+// the detail sheet — Free 3, Pro 10, Exclusive unlimited — each
+// with today's predicted risk and a SPIKE flag when today is >1.5x
+// the camera's 7-day mean observed violations (see
+// trend_analysis.dart for the rule). The weekly risk report is an
+// Exclusive feature, reached from here. Data comes from the existing
+// POST /predict_risk/batch and GET /violation_trends endpoints — no
+// new backend calls.
 import 'dart:async';
 
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
@@ -15,8 +17,8 @@ import '../services/settings_service.dart';
 import '../services/sound_service.dart';
 import '../services/subscription_service.dart';
 import '../services/trend_analysis.dart';
-import '../widgets/pro_upsell.dart';
 import 'map_screen.dart';
+import 'weekly_report_screen.dart';
 
 class SavedScreen extends StatelessWidget {
   const SavedScreen({
@@ -36,17 +38,12 @@ class SavedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Saved intersections are a Pro feature: non-Pro users get the
-    // upsell card instead of the list. AnimatedBuilder rebuilds this
-    // when a purchase completes (isPro flips).
+    // Saving is tiered (Free 3 / Pro 10 / Exclusive unlimited), so
+    // every tier sees this tab. AnimatedBuilder rebuilds it when a
+    // purchase completes (the tier flips).
     return AnimatedBuilder(
       animation: subscription,
       builder: (context, _) {
-        if (!subscription.isPro) {
-          return ListView(
-            children: [ProUpsellCard(subscription: subscription, sound: sound)],
-          );
-        }
         return _SavedListView(
           client: client,
           settings: settings,
@@ -300,6 +297,40 @@ class _SavedListViewState extends State<_SavedListView> {
             );
           }),
           const SizedBox(height: 8),
+          // Weekly risk report (Exclusive): one week in review per
+          // saved intersection, plus the Sunday digest.
+          if (widget.subscription.isExclusive)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  unawaited(widget.sound.playTap());
+                  unawaited(
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => WeeklyReportScreen(
+                          client: widget.client,
+                          sound: widget.sound,
+                          saved: widget.saved,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.assessment),
+                label: const Text('Weekly risk report'),
+              ),
+            )
+          else
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.lock_outline),
+              title: Text('Weekly risk report'),
+              subtitle: Text(
+                'One week in review per saved intersection, plus a '
+                'Sunday digest — an Exclusive feature.',
+              ),
+            ),
           const Text(
             'A spike means today’s predicted violations are more than '
             '1.5x this camera’s mean observed violations over the last '

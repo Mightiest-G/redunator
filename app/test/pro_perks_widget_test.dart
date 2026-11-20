@@ -13,13 +13,16 @@ import 'package:redunator/api/client.dart';
 import 'package:redunator/api/models.dart';
 import 'package:redunator/screens/saved_screen.dart';
 import 'package:redunator/screens/settings_screen.dart';
+import 'package:redunator/services/area_watch_service.dart';
 import 'package:redunator/services/background_alerts.dart';
 import 'package:redunator/services/morning_digest.dart';
 import 'package:redunator/services/proximity_service.dart';
 import 'package:redunator/services/saved_service.dart';
 import 'package:redunator/services/settings_service.dart';
 import 'package:redunator/services/sound_service.dart';
+import 'package:redunator/services/spoken_alert_service.dart';
 import 'package:redunator/services/subscription_service.dart';
+import 'package:redunator/services/widget_service.dart';
 import 'package:redunator/widgets/trend_section.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -189,7 +192,9 @@ void main() {
     );
   });
 
-  testWidgets('Saved tab shows the upsell to free users', (tester) async {
+  testWidgets('Saved tab shows the list to free users (up to 3 saves)', (
+    tester,
+  ) async {
     final saved = SavedService();
     await saved.load();
     await tester.pumpWidget(
@@ -206,8 +211,12 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Redunator Pro'), findsOneWidget);
-    expect(find.text('Saved intersections'), findsNothing);
+    // Saving is tiered now (Free 3 / Pro 10 / Exclusive unlimited),
+    // so free users see the list — not the old Pro upsell — plus
+    // the locked weekly-report row (an Exclusive feature).
+    expect(find.text('Saved intersections'), findsOneWidget);
+    expect(find.text('Weekly risk report'), findsOneWidget);
+    expect(find.text('Redunator Pro'), findsNothing);
   });
 
   testWidgets('Saved tab lists a saved camera with a spike flag', (
@@ -254,7 +263,7 @@ void main() {
   testWidgets('Settings shows the Pro alert distance locked for free', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 8000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -274,6 +283,9 @@ void main() {
             backgroundAlerts: BackgroundAlertsService(),
             digest: MorningDigestService(),
             saved: SavedService(),
+            areaWatch: AreaWatchService(),
+            spoken: SpokenAlertService(),
+            widgetService: WidgetService(),
             onSettingsChanged: () {},
           ),
         ),
@@ -290,7 +302,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'is_pro': true});
     final sub = await _proSubscription();
     addTearDown(sub.dispose);
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 8000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -310,6 +322,9 @@ void main() {
             backgroundAlerts: BackgroundAlertsService(),
             digest: MorningDigestService(),
             saved: SavedService(),
+            areaWatch: AreaWatchService(),
+            spoken: SpokenAlertService(),
+            widgetService: WidgetService(),
             onSettingsChanged: () {},
           ),
         ),

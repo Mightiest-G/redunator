@@ -17,7 +17,10 @@ import 'package:redunator/services/morning_digest.dart';
 import 'package:redunator/services/proximity_service.dart';
 import 'package:redunator/services/saved_service.dart';
 import 'package:redunator/services/settings_service.dart';
+import 'package:redunator/services/area_watch_service.dart';
 import 'package:redunator/services/sound_service.dart';
+import 'package:redunator/services/spoken_alert_service.dart';
+import 'package:redunator/services/widget_service.dart';
 import 'package:redunator/services/subscription_service.dart';
 import 'package:redunator/widgets/hourly_chart.dart';
 import 'package:redunator/widgets/missing_key_view.dart';
@@ -63,7 +66,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     // Tall viewport so the whole ListView builds (its lower tiles are
     // otherwise lazily built only when scrolled into view).
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 8000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -83,6 +86,9 @@ void main() {
             backgroundAlerts: BackgroundAlertsService(),
             digest: MorningDigestService(),
             saved: SavedService(),
+            areaWatch: AreaWatchService(),
+            spoken: SpokenAlertService(),
+            widgetService: WidgetService(),
             onSettingsChanged: () {},
           ),
         ),
@@ -93,7 +99,7 @@ void main() {
     expect(find.textContaining('Risk threshold: 75%'), findsOneWidget);
     expect(find.textContaining('Backend base URL'), findsOneWidget);
     expect(find.textContaining('Tap sounds'), findsOneWidget);
-    expect(find.textContaining('Redunator Pro'), findsOneWidget);
+    expect(find.textContaining('Redunator plans'), findsOneWidget);
     expect(
       find.textContaining('Google Maps API key configured'),
       findsOneWidget,

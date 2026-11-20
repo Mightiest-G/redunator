@@ -21,6 +21,8 @@ class AppSettings extends ChangeNotifier {
   static const String _kBackgroundAlertsEnabled =
       'background_alerts_enabled';
   static const String _kMorningDigestEnabled = 'morning_digest_enabled';
+  static const String _kSpokenAlertsEnabled = 'spoken_alerts_enabled';
+  static const String _kWeeklyDigestEnabled = 'weekly_digest_enabled';
 
   /// Default alert distance: 300 m.
   static const double defaultAlertDistanceM = 300;
@@ -59,6 +61,16 @@ class AppSettings extends ChangeNotifier {
   /// key from the background isolate.
   bool morningDigestEnabled = true;
 
+  /// Spoken alerts (Exclusive): a voice warning when the foreground
+  /// proximity watcher fires. Default ON; only speaks for Exclusive
+  /// users, and the toggle is Exclusive-gated in Settings.
+  bool spokenAlertsEnabled = true;
+
+  /// Weekly digest (Exclusive): the Sunday 07:00 week-in-review for
+  /// saved intersections. Default ON; the digest service reads the
+  /// same key from the background isolate.
+  bool weeklyDigestEnabled = true;
+
   bool _loaded = false;
   bool get loaded => _loaded;
 
@@ -82,6 +94,10 @@ class AppSettings extends ChangeNotifier {
         prefs.getBool(_kBackgroundAlertsEnabled) ?? true;
     s.morningDigestEnabled =
         prefs.getBool(_kMorningDigestEnabled) ?? true;
+    s.spokenAlertsEnabled =
+        prefs.getBool(_kSpokenAlertsEnabled) ?? true;
+    s.weeklyDigestEnabled =
+        prefs.getBool(_kWeeklyDigestEnabled) ?? true;
     s._loaded = true;
     return s;
   }
@@ -97,6 +113,8 @@ class AppSettings extends ChangeNotifier {
     bool soundEnabled = true,
     bool backgroundAlertsEnabled = true,
     bool morningDigestEnabled = true,
+    bool spokenAlertsEnabled = true,
+    bool weeklyDigestEnabled = true,
   }) {
     final s = AppSettings._()
       ..alertDistanceM = alertDistanceM
@@ -108,6 +126,8 @@ class AppSettings extends ChangeNotifier {
       ..soundEnabled = soundEnabled
       ..backgroundAlertsEnabled = backgroundAlertsEnabled
       ..morningDigestEnabled = morningDigestEnabled
+      ..spokenAlertsEnabled = spokenAlertsEnabled
+      ..weeklyDigestEnabled = weeklyDigestEnabled
       .._loaded = true;
     return s;
   }
@@ -146,6 +166,8 @@ class AppSettings extends ChangeNotifier {
     await prefs.setBool(_kSoundEnabled, soundEnabled);
     await prefs.setBool(_kBackgroundAlertsEnabled, backgroundAlertsEnabled);
     await prefs.setBool(_kMorningDigestEnabled, morningDigestEnabled);
+    await prefs.setBool(_kSpokenAlertsEnabled, spokenAlertsEnabled);
+    await prefs.setBool(_kWeeklyDigestEnabled, weeklyDigestEnabled);
   }
 
   Future<void> setAlertDistanceM(double v) async {
@@ -214,6 +236,22 @@ class AppSettings extends ChangeNotifier {
   /// the caller after this saves.
   Future<void> setMorningDigestEnabled(bool v) async {
     morningDigestEnabled = v;
+    await _save();
+    notifyListeners();
+  }
+
+  /// Spoken alerts toggle (Exclusive). The foreground watcher reads
+  /// it via the widget tree after this saves.
+  Future<void> setSpokenAlertsEnabled(bool v) async {
+    spokenAlertsEnabled = v;
+    await _save();
+    notifyListeners();
+  }
+
+  /// Weekly digest toggle (Exclusive). The digest is (un)scheduled
+  /// by the caller after this saves.
+  Future<void> setWeeklyDigestEnabled(bool v) async {
+    weeklyDigestEnabled = v;
     await _save();
     notifyListeners();
   }

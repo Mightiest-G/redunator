@@ -8,12 +8,15 @@ import 'package:http/testing.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:redunator/api/client.dart';
 import 'package:redunator/screens/settings_screen.dart';
+import 'package:redunator/services/area_watch_service.dart';
 import 'package:redunator/services/background_alerts.dart';
 import 'package:redunator/services/morning_digest.dart';
 import 'package:redunator/services/proximity_service.dart';
 import 'package:redunator/services/saved_service.dart';
 import 'package:redunator/services/settings_service.dart';
 import 'package:redunator/services/sound_service.dart';
+import 'package:redunator/services/spoken_alert_service.dart';
+import 'package:redunator/services/widget_service.dart';
 import 'package:redunator/services/subscription_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -69,6 +72,9 @@ Future<void> _pumpSettings(
           backgroundAlerts: BackgroundAlertsService(),
           digest: MorningDigestService(),
           saved: SavedService(),
+          areaWatch: AreaWatchService(),
+          spoken: SpokenAlertService(),
+          widgetService: WidgetService(),
           onSettingsChanged: () {},
         ),
       ),

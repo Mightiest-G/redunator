@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:redunator/api/models.dart';
 import 'package:redunator/api/routing.dart';
 
 void main() {
@@ -108,6 +109,98 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('getRoutes returns labelled alternatives from OSRM', () async {
+      final service = RouteService(
+        httpClient: MockClient((req) async {
+          expect(req.url.queryParameters['alternatives'], '2');
+          return http.Response(
+            jsonEncode({
+              'code': 'Ok',
+              'routes': [
+                {
+                  'distance': 1200.5,
+                  'duration': 300.25,
+                  'geometry': {
+                    'type': 'LineString',
+                    'coordinates': [
+                      [-87.6298, 41.8781],
+                      [-87.6396, 41.9402],
+                    ],
+                  },
+                },
+                {
+                  'distance': 1800.0,
+                  'duration': 420.0,
+                  'geometry': {
+                    'type': 'LineString',
+                    'coordinates': [
+                      [-87.6298, 41.8781],
+                      [-87.6500, 41.9100],
+                      [-87.6396, 41.9402],
+                    ],
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final routes = await service.getRoutes(
+        const LatLngPoint(41.8781, -87.6298),
+        const LatLngPoint(41.9402, -87.6396),
+      );
+      expect(routes.length, 2);
+      expect(routes[0].label, 'Fastest');
+      expect(routes[1].label, 'Alternative 1');
+      expect(routes[1].distanceM, 1800.0);
+    });
+
+    test('scoreRoute sums typical risk of cameras near the route', () {
+      final route = RouteResult(
+        points: const [
+          LatLngPoint(41.8781, -87.6298),
+          LatLngPoint(41.9402, -87.6396),
+        ],
+        distanceM: 1200.5,
+        durationS: 300.25,
+        source: 'OSRM',
+      );
+      final cameras = [
+        Intersection(
+          cameraId: '1413',
+          intersection: 'NEAR START',
+          latitude: 41.8785,
+          longitude: -87.6300,
+          typicalWeekdayPred: 53,
+          typicalWeekendPred: 40,
+          typicalWeekdayBand: 'HIGH',
+          typicalWeekendBand: 'HIGH',
+          typicalWeekdayScore: 1.0,
+          typicalWeekendScore: 0.9,
+          actualTestMean: null,
+          camMeanPreTest: null,
+        ),
+        Intersection(
+          cameraId: '9999',
+          intersection: 'FAR AWAY',
+          latitude: 41.0,
+          longitude: -87.0,
+          typicalWeekdayPred: 53,
+          typicalWeekendPred: 40,
+          typicalWeekdayBand: 'HIGH',
+          typicalWeekendBand: 'HIGH',
+          typicalWeekdayScore: 1.0,
+          typicalWeekendScore: 0.9,
+          actualTestMean: null,
+          camMeanPreTest: null,
+        ),
+      ];
+      final (score: score, cameraCount: count) = scoreRoute(route, cameras);
+      expect(count, 1);
+      expect(score, closeTo(1.0, 1e-9));
     });
 
     test('haversine distance: downtown to Belmont ~7 km', () {

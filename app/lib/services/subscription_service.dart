@@ -1,26 +1,37 @@
-// Redunator Pro subscriptions (Google Play Billing via in_app_purchase).
+// Redunator subscriptions (Google Play Billing via in_app_purchase).
 //
-// WHAT PRO UNLOCKS (Gabriel's call, 2026-11-18; extended 2026-11-19):
-// Route planning, proximity alerts, saved intersections + spike
-// alerts, risk trends, safest time to leave, custom alert distance,
-// background alerts (15-minute WorkManager check while the app is
-// closed) and the 07:00 morning risk digest.
-// Map + Query stay free. The gate lives in one place
-// (SubscriptionService.isPro, read by RouteScreen, MapScreen,
-// SavedScreen and the detail sheet) — changing the split is a
-// one-line change per screen.
+// TIERS (Gabriel's call, 2026-11-19): Free / Pro / Exclusive.
+//   Free — map + intersection queries + up to 3 saved intersections.
+//   Pro — everything Free has, plus route planning, proximity alerts,
+//     saved intersections with spike alerts (up to 10), 7- and 30-day
+//     risk trends, safest time to leave, custom alert distance,
+//     background alerts (15-minute WorkManager check while the app is
+//     closed) and the 07:00 morning risk digest.
+//   Exclusive — everything Pro has, plus unlimited saves, area watch
+//     (alerts for ANY high-risk camera in a watched area, even when
+//     you are not there), route comparison (alternative routes ranked
+//     by risk), the weekly risk report + Sunday digest, spoken alerts,
+//     and the home-screen risk widget.
+//
+// The gate lives in one place (SubscriptionService.tier, with the
+// isPro / isExclusive conveniences read by the screens and the
+// background services) — changing the split is a one-line change
+// per screen.
 //
 // PRODUCT IDS — these exact IDs must be created in Google Play Console
-// (one subscription, two base plans) before any purchase can work.
-// Until then the store reports them as not found, the UI says Pro is
-// "coming soon", and isPro stays false. Nothing here fakes a purchase.
+// (two subscriptions, two base plans each) before any purchase can
+// work. Until then the store reports them as not found, the UI says
+// subscriptions are not available yet, and the tier stays free.
+// Nothing here fakes a purchase.
 //
 // VERIFICATION: a store purchase is only trusted after the backend
 // confirms it (POST /subscriptions/verify, which checks the purchase
-// token against the Google Play Developer API). The app never grants
-// Pro from the store receipt alone. When the backend says verification
-// is not configured (no Play credentials on the server yet), Pro stays
-// off — that is the safe default, not a bug.
+// token against the Google Play Developer API for ANY product id —
+// the backend is product-agnostic, so Exclusive needs no server
+// change). The app never grants a tier from the store receipt alone.
+// When the backend says verification is not configured (no Play
+// credentials on the server yet), the tier stays free — that is the
+// safe default, not a bug.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -29,10 +40,48 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/client.dart';
 
+/// The three subscription tiers, lowest first.
+enum SubscriptionTier { free, pro, exclusive }
+
 /// Play Console product IDs for the Pro subscription (base plans).
 const String kProMonthlyProductId = 'redunator_pro_monthly';
 const String kProYearlyProductId = 'redunator_pro_yearly';
 const Set<String> kProProductIds = {kProMonthlyProductId, kProYearlyProductId};
+
+/// Play Console product IDs for the Exclusive subscription (base plans).
+const String kExclusiveMonthlyProductId = 'redunator_exclusive_monthly';
+const String kExclusiveYearlyProductId = 'redunator_exclusive_yearly';
+const Set<String> kExclusiveProductIds = {
+  kExclusiveMonthlyProductId,
+  kExclusiveYearlyProductId,
+};
+
+/// Every product the store is queried for.
+const Set<String> kAllProductIds = {
+  ...kProProductIds,
+  ...kExclusiveProductIds,
+};
+
+/// The tier a product id buys. Unknown ids buy nothing (free).
+SubscriptionTier tierForProduct(String productId) {
+  if (kExclusiveProductIds.contains(productId)) {
+    return SubscriptionTier.exclusive;
+  }
+  if (kProProductIds.contains(productId)) {
+    return SubscriptionTier.pro;
+  }
+  return SubscriptionTier.free;
+}
+
+/// Max saved intersections per tier. Null = unlimited. Free users get
+/// 3 saves (new — saves were Pro-only before this change). Existing
+/// saves above a new cap are grandfathered: only NEW saves are
+/// blocked, nothing is ever deleted for a downgrade.
+int? saveLimitForTier(SubscriptionTier tier) => switch (tier) {
+  SubscriptionTier.free => 3,
+  SubscriptionTier.pro => 10,
+  SubscriptionTier.exclusive => null,
+};
 
 /// Thin seam over the billing plugin so tests can use a fake store.
 /// The real implementation delegates to InAppPurchase.instance.
@@ -95,13 +144,24 @@ class SubscriptionService extends ChangeNotifier {
   /// token is what matters.
   String deviceId;
 
-  static const String _kIsPro = 'is_pro';
-  static const String _kProProductId = 'pro_product_id';
-  static const String _kProPurchaseToken = 'pro_purchase_token';
-  static const String _kProExpiryMs = 'pro_expiry_ms';
+  /// Current tier. Public so screens can read it directly.
+  static const String tierPrefsKey = 'subscription_tier';
 
-  bool _isPro = false;
-  bool get isPro => _isPro;
+  /// Legacy keys (pre-tier build): the bool is read once for
+  /// migration and then superseded by [tierPrefsKey].
+  static const String _kIsPro = 'is_pro';
+  static const String _kProductId = 'pro_product_id';
+  static const String _kPurchaseToken = 'pro_purchase_token';
+  static const String _kExpiryMs = 'pro_expiry_ms';
+
+  SubscriptionTier _tier = SubscriptionTier.free;
+  SubscriptionTier get tier => _tier;
+
+  /// True for Pro and Exclusive (every paid tier).
+  bool get isPro => _tier != SubscriptionTier.free;
+
+  /// True only for Exclusive.
+  bool get isExclusive => _tier == SubscriptionTier.exclusive;
 
   /// Products the store returned (empty until init() queries them).
   List<ProductDetails> products = [];
@@ -119,12 +179,13 @@ class SubscriptionService extends ChangeNotifier {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
   bool _initialized = false;
 
-  /// Loads cached Pro state, subscribes to the purchase stream and
-  /// queries the store for the Pro products. Safe to call repeatedly.
+  /// Loads the cached tier, subscribes to the purchase stream and
+  /// queries the store for the subscription products. Safe to call
+  /// repeatedly.
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
-    await _loadCachedPro();
+    await _loadCachedTier();
     _purchaseSub = _store.purchaseStream.listen(_onPurchases, onError: (_) {});
     try {
       storeAvailable = await _store.isAvailable();
@@ -135,13 +196,13 @@ class SubscriptionService extends ChangeNotifier {
       await refreshProducts();
     }
     // Re-validate a cached subscription against the backend on launch.
-    if (_isPro) await revalidate();
+    if (_tier != SubscriptionTier.free) await revalidate();
     notifyListeners();
   }
 
   Future<void> refreshProducts() async {
     try {
-      final resp = await _store.queryProductDetails(kProProductIds);
+      final resp = await _store.queryProductDetails(kAllProductIds);
       products = resp.productDetails;
       if (resp.error != null) lastError = resp.error!.message;
     } catch (e) {
@@ -167,7 +228,7 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   /// Replays past purchases through the purchase stream (also the way
-  /// a reinstall recovers Pro).
+  /// a reinstall recovers a tier).
   Future<void> restore() async {
     lastError = null;
     try {
@@ -178,18 +239,19 @@ class SubscriptionService extends ChangeNotifier {
     }
   }
 
-  /// Re-checks the cached subscription with the backend. Clears Pro
-  /// only when the backend explicitly says the purchase is invalid.
-  /// A network/401 failure leaves the cached state alone (it was real
-  /// once); "verification not configured" leaves Pro off.
+  /// Re-checks the cached subscription with the backend. Clears the
+  /// tier only when the backend explicitly says the purchase is
+  /// invalid. A network/401 failure leaves the cached state alone
+  /// (it was real once); "verification not configured" leaves the
+  /// tier alone too.
   Future<void> revalidate() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_kProPurchaseToken);
-    final productId = prefs.getString(_kProProductId);
+    final token = prefs.getString(_kPurchaseToken);
+    final productId = prefs.getString(_kProductId);
     if (token == null || productId == null) return;
     final result = await _verifyWithBackend(productId, token);
     if (result == PurchaseVerification.invalid) {
-      await _setPro(false);
+      await _setTier(SubscriptionTier.free, force: true);
     }
   }
 
@@ -215,17 +277,19 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   Future<void> _handleVerifiedPurchase(PurchaseDetails purchase) async {
-    if (!kProProductIds.contains(purchase.productID)) return;
+    final tier = tierForProduct(purchase.productID);
+    if (tier == SubscriptionTier.free) return;
     final token = purchase.verificationData.serverVerificationData;
     final result = await _verifyWithBackend(purchase.productID, token);
     if (result == PurchaseVerification.verified) {
-      await _setPro(true, productId: purchase.productID, token: token);
+      await _setTier(tier, productId: purchase.productID, token: token);
     } else if (result == PurchaseVerification.invalid) {
       lastError = 'Google Play did not confirm this purchase.';
       notifyListeners();
     }
-    // unavailable: verification is not configured yet — Pro stays off
-    // and lastError stays null (this is expected before Play is set up).
+    // unavailable: verification is not configured yet — the tier
+    // stays as it was and lastError stays null (this is expected
+    // before Play is set up).
   }
 
   /// Asks the backend to verify a purchase token. Returns unavailable
@@ -250,7 +314,7 @@ class SubscriptionService extends ChangeNotifier {
         if (expiry is String) {
           final prefs = await SharedPreferences.getInstance();
           final ms = DateTime.tryParse(expiry)?.millisecondsSinceEpoch;
-          if (ms != null) await prefs.setInt(_kProExpiryMs, ms);
+          if (ms != null) await prefs.setInt(_kExpiryMs, ms);
         }
         return PurchaseVerification.verified;
       }
@@ -260,26 +324,61 @@ class SubscriptionService extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadCachedPro() async {
+  Future<void> _loadCachedTier() async {
     final prefs = await SharedPreferences.getInstance();
-    final expiryMs = prefs.getInt(_kProExpiryMs);
+    final expiryMs = prefs.getInt(_kExpiryMs);
     final expired =
         expiryMs != null && expiryMs < DateTime.now().millisecondsSinceEpoch;
-    _isPro = (prefs.getBool(_kIsPro) ?? false) && !expired;
-    if (expired) await prefs.setBool(_kIsPro, false);
+    final stored = prefs.getString(tierPrefsKey);
+    if (stored != null) {
+      _tier = SubscriptionTier.values.firstWhere(
+        (t) => t.name == stored,
+        orElse: () => SubscriptionTier.free,
+      );
+    } else {
+      // One-time migration from the pre-tier build: the old bool +
+      // stored product id become a tier.
+      final wasPro = prefs.getBool(_kIsPro) ?? false;
+      final productId = prefs.getString(_kProductId);
+      _tier = wasPro
+          ? tierForProduct(productId ?? '')
+          : SubscriptionTier.free;
+      if (wasPro && _tier == SubscriptionTier.free) {
+        // Old Pro state with no (or an unknown) product id: keep Pro
+        // rather than silently dropping a paid user.
+        _tier = SubscriptionTier.pro;
+      }
+      await prefs.setString(tierPrefsKey, _tier.name);
+    }
+    if (expired) {
+      _tier = SubscriptionTier.free;
+      await prefs.setString(tierPrefsKey, _tier.name);
+    }
   }
 
-  Future<void> _setPro(bool value, {String? productId, String? token}) async {
+  /// Applies a tier change. A purchase never downgrades: a Pro
+  /// purchase arriving while Exclusive is active (e.g. a restore of
+  /// an old Pro purchase) is ignored. Only expiry and an explicit
+  /// backend "invalid" (force) clear the tier down.
+  Future<void> _setTier(
+    SubscriptionTier value, {
+    String? productId,
+    String? token,
+    bool force = false,
+  }) async {
+    if (!force && value != SubscriptionTier.free && value.index < _tier.index) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
-    _isPro = value;
-    await prefs.setBool(_kIsPro, value);
-    if (value) {
-      if (productId != null) await prefs.setString(_kProProductId, productId);
-      if (token != null) await prefs.setString(_kProPurchaseToken, token);
+    _tier = value;
+    await prefs.setString(tierPrefsKey, value.name);
+    if (value != SubscriptionTier.free) {
+      if (productId != null) await prefs.setString(_kProductId, productId);
+      if (token != null) await prefs.setString(_kPurchaseToken, token);
     } else {
-      await prefs.remove(_kProProductId);
-      await prefs.remove(_kProPurchaseToken);
-      await prefs.remove(_kProExpiryMs);
+      await prefs.remove(_kProductId);
+      await prefs.remove(_kPurchaseToken);
+      await prefs.remove(_kExpiryMs);
     }
     notifyListeners();
   }

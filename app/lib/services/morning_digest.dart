@@ -22,10 +22,35 @@ import 'local_notifications.dart';
 import 'route_risk.dart';
 import 'saved_service.dart';
 import 'trend_analysis.dart';
+import 'weekly_report.dart';
 
 /// Digest time, device-local.
 const int kDigestHour = 7;
 
+/// Weekly digest: Sunday at 07:00 device-local.
+const int kWeeklyDigestWeekday = DateTime.sunday;
+const int kWeeklyDigestHour = 7;
+
+/// SharedPreferences key holding the date (yyyy-MM-dd, device-local)
+/// of the Sunday the weekly digest was last scheduled for.
+/// Scheduling is skipped while the stored date is the upcoming
+/// Sunday, so app starts and background runs do not re-fetch every
+/// time.
+const String kWeeklyDigestScheduledDateKey = 'weekly_digest_scheduled_date';
+
+/// SharedPreferences key for the weekly digest toggle (AppSettings
+/// mirrors this key; the background isolate reads it directly).
+const String kWeeklyDigestEnabledKey = 'weekly_digest_enabled';
+
+/// Date of the next [weekday] at [hour] (device-local), strictly
+/// after [now].
+DateTime nextWeekday(DateTime now, int weekday, int hour) {
+  var d = DateTime(now.year, now.month, now.day, hour);
+  final daysAhead = (weekday - d.weekday) % 7;
+  d = d.add(Duration(days: daysAhead));
+  if (!d.isAfter(now)) d = d.add(const Duration(days: 7));
+  return d;
+}
 /// How many saved cameras the digest lists before collapsing the
 /// rest into an "and N more" line (notification bodies are short).
 const int kDigestMaxRows = 3;
@@ -167,6 +192,102 @@ class MorningDigestService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// (Re)schedules the Sunday 07:00 weekly digest when Exclusive is
+  /// on and the weekly toggle is on; cancels it otherwise. Same
+  /// pattern as the daily digest: fetch once per week (the stored
+  /// Sunday date guards it), build the body from the saved cameras'
+  /// trends, and schedule the repeating weekly notification.
+  Future<void> ensureWeeklyScheduled({
+    required RedunatorApiClient client,
+    required bool isExclusive,
+    required bool enabled,
+    DateTime? now,
+    bool force = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final at = now ?? DateTime.now();
+    if (!isExclusive || !enabled) {
+      await _cancelWeekly(prefs);
+      return;
+    }
+    final nextSunday = nextWeekday(at, kWeeklyDigestWeekday, kWeeklyDigestHour);
+    final key = dateKey(nextSunday);
+    if (!force && prefs.getString(kWeeklyDigestScheduledDateKey) == key) {
+      return;
+    }
+    try {
+      final saved = _readSaved(prefs);
+      final body = saved.isEmpty
+          ? 'No saved intersections yet — save the cameras on your '
+                'route and the Sunday digest will review their week.'
+          : await _buildWeeklyBody(client, saved);
+      await _notifications.scheduleWeeklyDigest(
+        title: 'Redunator weekly digest',
+        body: body,
+        weekday: kWeeklyDigestWeekday,
+        hour: kWeeklyDigestHour,
+      );
+      await prefs.setString(kWeeklyDigestScheduledDateKey, key);
+    } catch (_) {
+      // Leave any previously scheduled weekly digest alone.
+    }
+  }
+
+  /// Builds the weekly digest with live data and shows it
+  /// immediately (Settings "Send test weekly digest" button).
+  Future<bool> sendTestWeeklyDigest({
+    required RedunatorApiClient client,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = _readSaved(prefs);
+      final body = saved.isEmpty
+          ? 'No saved intersections yet — save the cameras on your '
+                'route and the Sunday digest will review their week.'
+          : await _buildWeeklyBody(client, saved);
+      await _notifications.showNow(
+        title: 'Redunator weekly digest (test)',
+        body: body,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _cancelWeekly(SharedPreferences prefs) async {
+    try {
+      await _notifications.cancelWeeklyDigest();
+    } catch (_) {}
+    await prefs.remove(kWeeklyDigestScheduledDateKey);
+  }
+
+  /// One trends fetch per saved camera, summarised into the weekly
+  /// digest body (see weekly_report.dart).
+  Future<String> _buildWeeklyBody(
+    RedunatorApiClient client,
+    List<SavedIntersection> saved,
+  ) async {
+    final summaries = <WeeklyCameraSummary>[];
+    await Future.wait(
+      saved.map((s) async {
+        try {
+          final trends = await client.getViolationTrends(
+            cameraId: s.cameraId,
+          );
+          final summary = weeklySummary(
+            name: s.intersection,
+            days: trends.days,
+          );
+          if (summary != null) summaries.add(summary);
+        } catch (_) {
+          // One camera failing must not kill the digest.
+        }
+      }),
+    );
+    return buildWeeklyDigestText(summaries: summaries);
   }
 
   Future<void> _cancel(SharedPreferences prefs) async {

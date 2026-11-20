@@ -11,6 +11,7 @@ import 'package:geolocator/geolocator.dart';
 import '../api/client.dart';
 import '../api/models.dart';
 import '../config.dart';
+import '../services/area_watch_service.dart';
 import '../services/background_alerts.dart';
 import '../services/cache_service.dart';
 import '../services/morning_digest.dart';
@@ -18,8 +19,10 @@ import '../services/proximity_service.dart';
 import '../services/saved_service.dart';
 import '../services/settings_service.dart';
 import '../services/sound_service.dart';
+import '../services/spoken_alert_service.dart';
 import '../services/subscription_service.dart';
 import '../services/update_service.dart';
+import '../services/widget_service.dart';
 import '../widgets/pro_upsell.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -33,6 +36,9 @@ class SettingsScreen extends StatefulWidget {
     required this.backgroundAlerts,
     required this.digest,
     required this.saved,
+    required this.areaWatch,
+    required this.spoken,
+    required this.widgetService,
     required this.onSettingsChanged,
   });
   final AppSettings settings;
@@ -43,6 +49,9 @@ class SettingsScreen extends StatefulWidget {
   final BackgroundAlertsService backgroundAlerts;
   final MorningDigestService digest;
   final SavedService saved;
+  final AreaWatchService areaWatch;
+  final SpokenAlertService spoken;
+  final WidgetService widgetService;
   final VoidCallback onSettingsChanged;
 
   @override
@@ -66,6 +75,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _requestingBgPermissions = false;
   bool _sendingTestDigest = false;
   String? _testDigestResult;
+  bool _sendingTestWeeklyDigest = false;
+  String? _testWeeklyDigestResult;
+  bool _updatingWidget = false;
+  String? _widgetResult;
 
   @override
   void initState() {
@@ -137,6 +150,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _testDigestResult = ok
           ? 'Test digest sent — check your notifications.'
           : 'Could not build the digest (are you online?).';
+    });
+  }
+
+  Future<void> _sendTestWeeklyDigest() async {
+    setState(() {
+      _sendingTestWeeklyDigest = true;
+      _testWeeklyDigestResult = null;
+    });
+    final ok = await widget.digest.sendTestWeeklyDigest(
+      client: widget.client,
+    );
+    if (!mounted) return;
+    setState(() {
+      _sendingTestWeeklyDigest = false;
+      _testWeeklyDigestResult = ok
+          ? 'Test weekly digest sent — check your notifications.'
+          : 'Could not build the weekly digest (are you online?).';
+    });
+  }
+
+  Future<void> _updateWidgetNow() async {
+    setState(() {
+      _updatingWidget = true;
+      _widgetResult = null;
+    });
+    await widget.widgetService.refresh(client: widget.client);
+    if (!mounted) return;
+    setState(() {
+      _updatingWidget = false;
+      _widgetResult =
+          'Widget updated — add it from your home screen: long-press '
+          'the home screen, tap Widgets, find Redunator.';
     });
   }
 
@@ -560,6 +605,271 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(height: 32),
         const Text(
+          'Watch areas',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: Listenable.merge([
+            widget.subscription,
+            widget.areaWatch,
+          ]),
+          builder: (context, _) {
+            if (!widget.subscription.isExclusive) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Exclusive watches a whole neighbourhood: '
+                    'long-press the map to watch an area, and the '
+                    'background check alerts you when ANY camera '
+                    'inside it is HIGH today — even when you are not '
+                    'there.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            final areas = widget.areaWatch.areas;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Long-press the map to watch an area. The background '
+                  'check alerts you (at most once per area per day) '
+                  'when any camera inside it is HIGH today.',
+                ),
+                if (areas.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('No watch areas yet.'),
+                  ),
+                ...areas.map(
+                  (a) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.radar),
+                    title: Text(a.name),
+                    subtitle: Text(
+                      a.radiusM >= 1000
+                          ? '${(a.radiusM / 1000).toStringAsFixed(a.radiusM % 1000 == 0 ? 0 : 1)} km radius'
+                          : '${a.radiusM.round()} m radius',
+                    ),
+                    trailing: IconButton(
+                      tooltip: 'Remove watch area',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () async {
+                        unawaited(widget.sound.playTap());
+                        await widget.areaWatch.remove(a.id);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Spoken alerts',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isExclusive) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Exclusive speaks the warning out loud when a '
+                    'proximity alert fires, so you hear it without '
+                    'looking at the phone. Uses the device’s '
+                    'text-to-speech voice.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Spoken alerts'),
+                  subtitle: const Text(
+                    'A voice warning ("High risk camera ahead…") when '
+                    'a proximity alert fires. Foreground only.',
+                  ),
+                  value: s.spokenAlertsEnabled,
+                  onChanged: (v) async {
+                    unawaited(widget.sound.playTap());
+                    await s.setSpokenAlertsEnabled(v);
+                    widget.spoken.enabled = v;
+                    setState(() {});
+                  },
+                ),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    unawaited(widget.sound.playTap());
+                    await widget.spoken.testSpeak();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Spoken alert test played.'),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.record_voice_over),
+                  label: const Text('Test spoken alert'),
+                ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Weekly digest',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isExclusive) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Exclusive adds a Sunday 07:00 digest: one week '
+                    'in review for each saved intersection — this '
+                    'week’s mean vs the prior week’s, the worst day, '
+                    'and spike days. The full report lives on the '
+                    'Saved tab.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Weekly digest'),
+                  subtitle: const Text(
+                    'Sundays at 07:00: one week in review for your '
+                    'saved intersections.',
+                  ),
+                  value: s.weeklyDigestEnabled,
+                  onChanged: (v) async {
+                    unawaited(widget.sound.playTap());
+                    await s.setWeeklyDigestEnabled(v);
+                    try {
+                      await widget.digest.ensureWeeklyScheduled(
+                        client: widget.client,
+                        isExclusive: widget.subscription.isExclusive,
+                        enabled: v,
+                        force: true,
+                      );
+                    } catch (_) {}
+                    setState(() {});
+                  },
+                ),
+                OutlinedButton.icon(
+                  onPressed: _sendingTestWeeklyDigest
+                      ? null
+                      : () {
+                          unawaited(widget.sound.playTap());
+                          _sendTestWeeklyDigest();
+                        },
+                  icon: const Icon(Icons.notifications),
+                  label: Text(
+                    _sendingTestWeeklyDigest
+                        ? 'Sending…'
+                        : 'Send test weekly digest now',
+                  ),
+                ),
+                if (_testWeeklyDigestResult != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(_testWeeklyDigestResult!),
+                  ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
+          'Home-screen widget',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: widget.subscription,
+          builder: (context, _) {
+            if (!widget.subscription.isExclusive) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Exclusive puts today’s risk for your saved '
+                    'intersections on your home screen — no need to '
+                    'open the app. It refreshes when the app opens '
+                    'and from the background check.',
+                  ),
+                  ProUpsellCard(
+                    subscription: widget.subscription,
+                    sound: widget.sound,
+                    showTitle: false,
+                  ),
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Shows today’s risk for your saved intersections. '
+                  'Add it from your home screen: long-press the home '
+                  'screen, tap Widgets, find Redunator.',
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _updatingWidget
+                      ? null
+                      : () {
+                          unawaited(widget.sound.playTap());
+                          _updateWidgetNow();
+                        },
+                  icon: const Icon(Icons.widgets),
+                  label: Text(
+                    _updatingWidget ? 'Updating…' : 'Update widget now',
+                  ),
+                ),
+                if (_widgetResult != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(_widgetResult!),
+                  ),
+              ],
+            );
+          },
+        ),
+        const Divider(height: 32),
+        const Text(
           'Backend',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
@@ -718,14 +1028,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(height: 32),
         const Text(
-          'Redunator Pro',
+          'Redunator plans',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         AnimatedBuilder(
           animation: widget.subscription,
           builder: (context, _) {
-            if (widget.subscription.isPro) {
+            final tier = widget.subscription.tier;
+            if (tier == SubscriptionTier.exclusive) {
+              return const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.workspace_premium, color: Colors.amber),
+                title: Text('Exclusive is active'),
+                subtitle: Text(
+                  'Everything in Pro, plus unlimited saves, area '
+                  'watch, route comparison, the weekly risk report '
+                  'with Sunday digest, spoken alerts and the '
+                  'home-screen widget.',
+                ),
+              );
+            }
+            if (tier == SubscriptionTier.pro) {
               return const ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.workspace_premium, color: Colors.amber),
