@@ -39,9 +39,13 @@ class MissingKeyView extends StatelessWidget {
           '4. Restrict the key: Application restrictions → Android apps, '
           'package com.redunator.redunator; API restrictions → only the '
           'APIs above.\n'
-          '5. Open lib/config.dart in this project and paste the key:\n'
-          '   const String googleMapsApiKey = \'AIza...\';\n'
-          '6. Rebuild the app (flutter build apk --debug).\n\n'
+          '5. Give the build the key WITHOUT putting it in the repo:\n'
+          '   local: MAPS_API_KEY=<key> flutter build apk --debug\n'
+          '   (also pass --dart-define=MAPS_API_KEY=<key> so the Dart\n'
+          '   side sees it); CI reads the GOOGLE_MAPS_API_KEY secret.\n'
+          '   A key pasted into the repo is exposed the moment the\n'
+          '   repo is public — that already happened twice.\n'
+          '6. Rebuild the app.\n\n'
           'The Query and Settings tabs work without a key; only '
           'the map and route views need it.',
         ),

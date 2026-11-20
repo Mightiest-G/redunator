@@ -78,14 +78,17 @@ jobs:
           storeFile=upload-keystore.jks
           EOF
 
-      # Retry once: the Gradle distribution download can fail transiently.
-      # --build-number stamps the GitHub run number into the APK, so the
-      # app's in-app update check can compare it with the latest
-      # published release (GET /app/latest). Build name stays 1.0.0
-      # from pubspec.yaml.
+      # Google Maps API key: the GOOGLE_MAPS_API_KEY secret is injected
+      # at build time — as env MAPS_API_KEY for the Android manifest
+      # (build.gradle.kts) and as --dart-define for the Dart check
+      # (lib/config.dart). The key must never appear in the repo: a
+      # committed key was flagged exposed twice and rotated out
+      # (apk-19). GitHub masks the secret in logs.
       - name: Build release APK
         working-directory: app
-        run: flutter build apk --release --build-number ${{ github.run_number }} || flutter build apk --release --build-number ${{ github.run_number }}
+        env:
+          MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} || flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

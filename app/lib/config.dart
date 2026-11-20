@@ -1,28 +1,31 @@
 // Redunator configuration.
 //
-// GOOGLE MAPS API KEY — THE ONLY place the key lives in this app.
+// GOOGLE MAPS API KEY — injected at build time, never committed.
 // ------------------------------------------------------------------
-// 1. Paste your key as the value of googleMapsApiKey below (the
-//    `const String` declaration). Do NOT put an example assignment
-//    anywhere in this comment block — the Gradle build reads this
-//    file with a regex, and an example here used to be matched first,
-//    injecting a fake key into the manifest and blanking the map.
-//    Get a key in the Google Cloud console:
-//      Cloud Console -> APIs & Services -> Credentials -> Create Credentials
-//      -> API key, then restrict it (Android apps, package
-//      com.redunator.redunator) and enable "Maps SDK for Android" and
-//      "Directions API" (Directions is only used as a fallback if OSRM
-//      routing fails — see lib/api/routing.dart).
-// 2. Rebuild the app. The same value is read by
-//    android/app/build.gradle.kts (regex over this file) and injected
-//    into AndroidManifest.xml as com.google.android.geo.API_KEY.
-// 3. Do NOT commit a real key. Keep this file local, or use a build
-//    variant that injects it at build time.
+// The key comes from the MAPS_API_KEY environment variable:
+//   * CI: the GitHub Actions secret GOOGLE_MAPS_API_KEY, passed to
+//     the build as env MAPS_API_KEY (for the Android manifest, via
+//     app/build.gradle.kts) and as --dart-define=MAPS_API_KEY=...
+//     (for this const). See .github/workflows/build-apk.yml.
+//   * Local: `MAPS_API_KEY=<key> flutter build apk` (and pass
+//     --dart-define=MAPS_API_KEY=<key> so the Dart side sees it).
+// A key used to live here as a const and was committed to the public
+// repo — GitGuardian flagged it exposed twice, and it was rotated
+// out (apk-19). NEVER paste a real key into this repo again: a
+// committed key is exposed the moment the repo is public.
+// The key needs "Maps SDK for Android" and "Directions API"
+// (Directions is only used as a fallback if OSRM routing fails —
+// see lib/api/routing.dart). No app restriction: CI signs with the
+// release key and local builds with a rotating debug key, so no
+// SHA-1 restriction can hold.
 //
 // When the key is empty, the app does NOT crash and does NOT show a
 // blank map: the Map tab shows a full-screen explanation with these
 // steps instead (see lib/widgets/missing_key_view.dart).
-const String googleMapsApiKey = 'AIzaSyDpwo8v-wxOHe8yXStzzj9QrueDaPfe4Qs';
+const String googleMapsApiKey = String.fromEnvironment(
+  'MAPS_API_KEY',
+  defaultValue: '',
+);
 
 /// Default backend base URL: the live Cloud Run service
 /// (https://redunator-api-108691448805.us-central1.run.app).

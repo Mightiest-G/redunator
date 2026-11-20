@@ -49,22 +49,19 @@ android {
         // Android library requires 23. Safe for a modern app.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-        // Google Maps API key: single source of truth is lib/config.dart
-        // (const String googleMapsApiKey). Read it here so the Android
-        // manifest gets the same value the Dart code checks.
-        // Anchored to the real `const String` declaration: the comment
-        // block above it used to contain an example assignment, and an
-        // unanchored regex matched that example first, injecting the
-        // literal placeholder 'AIza...' into the manifest — which made
-        // the map stay blank on device (2026-11-17).
-        val configFile = rootProject.file("../lib/config.dart")
-        var mapsApiKey = ""
-        if (configFile.exists()) {
-            val match = Regex("""(?m)^const String googleMapsApiKey\s*=\s*['"]([^'"]*)['"]""")
-                .find(configFile.readText())
-            if (match != null) mapsApiKey = match.groupValues[1]
-        }
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        // Google Maps API key: injected at build time from the
+        // MAPS_API_KEY environment variable (CI: the GOOGLE_MAPS_API_KEY
+        // GitHub Actions secret, see .github/workflows/build-apk.yml).
+        // The key used to be regex-read out of lib/config.dart, where
+        // it lived as a committed const — it was flagged exposed twice
+        // (GitGuardian) and rotated out (apk-19). Never put a real key
+        // in this repo again. Local builds without the env var get an
+        // empty key and the app shows the missing-key screen instead
+        // of a blank map (see lib/widgets/missing_key_view.dart).
+        // The Dart side reads the same value via --dart-define (see
+        // lib/config.dart), so the manifest and the Dart check agree.
+        manifestPlaceholders["MAPS_API_KEY"] =
+            System.getenv("MAPS_API_KEY") ?: ""
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`

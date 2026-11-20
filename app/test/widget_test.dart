@@ -1,10 +1,10 @@
 // Widget tests: missing-key screen, hourly chart, settings screen.
-// NOTE (2026-11-18): the repo now ships the real Maps key in
-// lib/config.dart — the Actions build reads it from there, so the key
-// must stay in the repo until a build-time secret injection exists.
-// That means MapScreen never reaches the missing-key view in tests
-// any more, so the explanation itself is tested standalone below
-// (MissingKeyView), and the Settings test expects "configured".
+// NOTE (apk-19): the Maps key is injected at build time now
+// (MAPS_API_KEY env / --dart-define, see lib/config.dart) and no
+// longer lives in the repo. Run the suite with
+// `--dart-define=MAPS_API_KEY=test-key`, or the Settings test below
+// fails — it asserts the key shows as configured. The missing-key
+// explanation itself is tested standalone below (MissingKeyView).
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -37,7 +37,10 @@ void main() {
     await tester.pump();
     expect(find.text('Google Maps API key missing'), findsOneWidget);
     expect(find.textContaining('console.cloud.google.com'), findsOneWidget);
-    expect(find.textContaining('lib/config.dart'), findsOneWidget);
+    // The fix is build-time injection now, not pasting a key into
+    // the repo (apk-19: the committed key was rotated out).
+    expect(find.textContaining('MAPS_API_KEY'), findsOneWidget);
+    expect(find.textContaining('GOOGLE_MAPS_API_KEY'), findsOneWidget);
   });
 
   testWidgets('HourlyChart renders bands and the estimate label',
