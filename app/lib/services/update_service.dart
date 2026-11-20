@@ -10,12 +10,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
-import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/client.dart';
 import 'apk_downloader.dart';
+import 'apk_installer.dart';
 
 class AppUpdateInfo {
   const AppUpdateInfo({
@@ -238,20 +238,17 @@ class UpdateService {
                       onPressed: () async {
                         final f = file;
                         if (f == null) return;
-                        final result = await OpenFilex.open(
-                          f.path,
-                          type: 'application/vnd.android.package-archive',
-                        );
+                        final message =
+                            await ApkInstaller().installApk(f.path);
                         if (!ctx.mounted) return;
-                        if (result.type == ResultType.done) {
+                        if (message == 'ok') {
                           Navigator.of(ctx).pop(
                             UpdateDownloadOutcome.downloaded,
                           );
                         } else {
                           setState(() {
-                            error =
-                                'Could not open the installer (${result.message}). '
-                                'Try opening the release in your browser instead.';
+                            error = '$message Try opening the release '
+                                'in your browser instead.';
                             phase = _DownloadPhase.failed;
                           });
                         }

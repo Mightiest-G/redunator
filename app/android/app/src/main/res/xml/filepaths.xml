@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- The in-app updater writes release APKs to the app's external
+         files directory; the installer opens them through this path. -->
+    <external-files-path name="apk" path="." />
+</paths>
