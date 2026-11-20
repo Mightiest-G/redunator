@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same keep rules as res/values/keep.xml, in the location the
+resource shrinker's own documentation uses (res/raw/keep.xml).
+The values copy alone did not stop the shrinker (apk-17 still
+shipped without the sounds), so both copies are kept, together
+with a live R.raw reference in MainActivity.kt. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/proximity_alert,@raw/spike_alert,@raw/area_alert,@raw/digest_morning,@raw/digest_weekly" />

@@ -4,6 +4,8 @@ builds (FlutterPlugin.kt: isMinifyEnabled + isShrinkResources). The
 notification channel sounds are looked up by NAME at runtime
 (RawResourceAndroidNotificationSound), so the shrinker cannot see
 any reference to them and drops the files from the APK — apk-16
-shipped without them. Keep all five raw sounds. -->
+shipped without them, and this file alone did NOT stop it (apk-17
+still had no raw resources). Kept as one layer; res/raw/keep.xml
+and a live R.raw reference in MainActivity.kt are the others. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
     tools:keep="@raw/proximity_alert,@raw/spike_alert,@raw/area_alert,@raw/digest_morning,@raw/digest_weekly" />

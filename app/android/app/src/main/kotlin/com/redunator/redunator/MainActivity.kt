@@ -11,6 +11,7 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        logNotificationSoundIds()
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "redunator/install",
@@ -27,6 +28,25 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    // Notification channel sounds are looked up by NAME at runtime
+    // (flutter_local_notifications RawResourceAndroidNotificationSound),
+    // so the resource shrinker cannot see any reference to them and
+    // strips them from release builds — apk-16 and apk-17 both shipped
+    // without them, and tools:keep in res/values/keep.xml did not stop
+    // it. This live reference keeps all five in the APK: the IDs flow
+    // into a log call R8 cannot fold away, and the line also proves at
+    // startup (logcat) that the sounds resolved. Do not remove.
+    private fun logNotificationSoundIds() {
+        val ids = intArrayOf(
+            R.raw.proximity_alert,
+            R.raw.spike_alert,
+            R.raw.area_alert,
+            R.raw.digest_morning,
+            R.raw.digest_weekly,
+        )
+        android.util.Log.d("Redunator", "Notification sounds: ${ids.contentToString()}")
     }
 
     // Shares the downloaded APK with the system installer through the
