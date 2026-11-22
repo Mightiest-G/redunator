@@ -11,6 +11,16 @@ on:
       - 'app/**'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
+  inputs:
+        test_tier:
+          description: 'Test tier override for this build (none = normal release build)'
+          required: false
+          default: 'none'
+          type: choice
+          options:
+          - none
+          - pro
+          - exclusive
 permissions:
   contents: write
 
@@ -102,7 +112,7 @@ jobs:
           path: app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Publish GitHub Release with the APK
-      if: ${{ inputs.test_tier == 'none' || inputs.test_tier == '' }}
+        if: ${{ inputs.test_tier == 'none' || inputs.test_tier == '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
