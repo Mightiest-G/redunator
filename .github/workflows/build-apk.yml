@@ -18,9 +18,9 @@ on:
           default: 'none'
           type: choice
           options:
-              - none
-            - pro
-            - exclusive
+          - none
+          - pro
+          - exclusive
 permissions:
   contents: write
 
