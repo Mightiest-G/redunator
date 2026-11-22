@@ -15,11 +15,11 @@ on:
       test_tier:
             description: 'Test tier override for this build (none = normal release build)'
             required: false
-        default: 'none'
-      type: choice
-      options:
-      - none
-  - pro
+          default: 'none'
+          type: choice
+          options:
+              - none
+          - pro
   - exclusive
 
 permissions:
