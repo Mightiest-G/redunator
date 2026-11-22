@@ -154,14 +154,33 @@ class SubscriptionService extends ChangeNotifier {
   static const String _kPurchaseToken = 'pro_purchase_token';
   static const String _kExpiryMs = 'pro_expiry_ms';
 
-  SubscriptionTier _tier = SubscriptionTier.free;
-  SubscriptionTier get tier => _tier;
+    /// Test-only tier override, set at build time with
+    /// --dart-define=REDUNATOR_TEST_TIER=pro|exclusive. Off by default
+    /// and never set by a release build: it lets a test APK run the
+    /// paid background features (digest, background alerts, widget)
+    /// on a device without a store purchase, so they can be verified
+    /// before Play Console products exist. In-memory only — nothing is
+    /// written to prefs, so installing the real build afterwards
+    /// restores Free and the override can never leak into a purchase.
+    static const String _testTier = String.fromEnvironment(
+          'REDUNATOR_TEST_TIER',
+          defaultValue: 'none',
+        );
 
-  /// True for Pro and Exclusive (every paid tier).
-  bool get isPro => _tier != SubscriptionTier.free;
+    SubscriptionTier _tier = SubscriptionTier.free;
 
-  /// True only for Exclusive.
-  bool get isExclusive => _tier == SubscriptionTier.exclusive;
+    /// Current tier, with the test override applied.
+    SubscriptionTier get tier {
+          if (_testTier == 'exclusive') return SubscriptionTier.exclusive;
+          if (_testTier == 'pro') return SubscriptionTier.pro;
+          return _tier;
+    }
+
+    /// True for Pro and Exclusive (every paid tier).
+    bool get isPro => tier != SubscriptionTier.free;
+
+    /// True only for Exclusive.
+    bool get isExclusive => tier == SubscriptionTier.exclusive;
 
   /// Products the store returned (empty until init() queries them).
   List<ProductDetails> products = [];
