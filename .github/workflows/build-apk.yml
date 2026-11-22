@@ -11,14 +11,14 @@ on:
       - 'app/**'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
-  inputs:
-  test_tier:
-  description: 'Test tier override for this build (none = normal release build)'
-  required: false
-  default: 'none'
-  type: choice
-  options:
-  - none
+    inputs:
+      test_tier:
+            description: 'Test tier override for this build (none = normal release build)'
+            required: false
+        default: 'none'
+      type: choice
+      options:
+      - none
   - pro
   - exclusive
 
