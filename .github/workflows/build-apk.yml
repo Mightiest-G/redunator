@@ -11,6 +11,16 @@ on:
       - 'app/**'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
+  inputs:
+  test_tier:
+  description: 'Test tier override for this build (none = normal release build)'
+  required: false
+  default: 'none'
+  type: choice
+  options:
+  - none
+  - pro
+  - exclusive
 
 permissions:
   contents: write
@@ -84,11 +94,17 @@ jobs:
       # (lib/config.dart). The key must never appear in the repo: a
       # committed key was flagged exposed twice and rotated out
       # (apk-19). GitHub masks the secret in logs.
+      # Test tier override: REDUNATOR_TEST_TIER is 'none' for every
+      # normal build (push or a dispatch left at none), so the store
+      # gating is untouched. A dispatch with pro/exclusive builds a
+      # test APK with the paid features unlocked in-memory only (see
+      # SubscriptionService) — that build is never published as a
+      # public release (see the condition on the release step below).
       - name: Build release APK
         working-directory: app
         env:
           MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        run: flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} || flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} --dart-define=REDUNATOR_TEST_TIER=${{ inputs.test_tier || 'none' }} || flutter build apk --release --build-number ${{ github.run_number }} --dart-define=MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} --dart-define=REDUNATOR_TEST_TIER=${{ inputs.test_tier || 'none' }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -97,6 +113,7 @@ jobs:
           path: app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Publish GitHub Release with the APK
+      if: ${{ inputs.test_tier == 'none' || inputs.test_tier == '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
