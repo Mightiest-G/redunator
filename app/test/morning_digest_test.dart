@@ -113,7 +113,11 @@ Map<String, dynamic> _predictionJson({
     24,
     (h) => {
       'hour': h,
-      'predicted_violations': h == 10 ? 0.5 : h == 15 ? 4.8 : 1.0,
+      'predicted_violations': h == 10
+          ? 0.5
+          : h == 15
+          ? 4.8
+          : 1.0,
       'band': 'HIGH',
       'risk_score': 0.03,
       'estimate': true,
@@ -174,37 +178,37 @@ String _savedJson() => jsonEncode([
 
 RedunatorApiClient _digestClient({double daily1413 = 53.0}) =>
     RedunatorApiClient(
-  baseUrl: 'https://example.invalid',
-  httpClient: MockClient((req) async {
-    if (req.url.path == '/predict_risk/batch') {
-      return http.Response(
-        jsonEncode({
-          'results': [
-            _predictionJson(
-              cameraId: '1413',
-              name: 'LAKE SHORE DR AND BELMONT',
-              daily: daily1413,
-              band: 'HIGH',
-            ),
-            _predictionJson(
-              cameraId: '2251',
-              name: 'CICERO AND I-55',
-              daily: 3.0,
-              band: 'MEDIUM',
-            ),
-          ],
-          'count': 2,
-          'errors': 0,
-        }),
-        200,
-      );
-    }
-    if (req.url.path == '/violation_trends') {
-      return http.Response(jsonEncode(_trendsJson()), 200);
-    }
-    return http.Response('not found', 404);
-  }),
-);
+      baseUrl: 'https://example.invalid',
+      httpClient: MockClient((req) async {
+        if (req.url.path == '/predict_risk/batch') {
+          return http.Response(
+            jsonEncode({
+              'results': [
+                _predictionJson(
+                  cameraId: '1413',
+                  name: 'LAKE SHORE DR AND BELMONT',
+                  daily: daily1413,
+                  band: 'HIGH',
+                ),
+                _predictionJson(
+                  cameraId: '2251',
+                  name: 'CICERO AND I-55',
+                  daily: 3.0,
+                  band: 'MEDIUM',
+                ),
+              ],
+              'count': 2,
+              'errors': 0,
+            }),
+            200,
+          );
+        }
+        if (req.url.path == '/violation_trends') {
+          return http.Response(jsonEncode(_trendsJson()), 200);
+        }
+        return http.Response('not found', 404);
+      }),
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -286,8 +290,7 @@ void main() {
   });
 
   group('ensureScheduled', () {
-    test('schedules the digest with saved cameras, once per day',
-        () async {
+    test('schedules the digest with saved cameras, once per day', () async {
       SharedPreferences.setMockInitialValues({
         'saved_intersections': _savedJson(),
       });
@@ -314,10 +317,7 @@ void main() {
       expect(body, contains('Safest to leave: 10:00 (estimates)'));
       expect(body, contains('Daily risk is an estimate.'));
       final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getString(kDigestScheduledDateKey),
-        '2026-11-19',
-      );
+      expect(prefs.getString(kDigestScheduledDateKey), '2026-11-19');
       // A second call the same day does not re-schedule.
       await svc.ensureScheduled(
         client: _digestClient(),
@@ -373,34 +373,64 @@ void main() {
       );
     });
 
-    test('non-Pro or disabled cancels the digest and never schedules',
-        () async {
+    test('schedules a fallback digest when the fetch fails', () async {
       SharedPreferences.setMockInitialValues({
         'saved_intersections': _savedJson(),
-        kDigestScheduledDateKey: '2026-11-19',
       });
       final gateway = _FakeGateway();
       final svc = MorningDigestService(notifications: gateway);
+      final client = RedunatorApiClient(
+        baseUrl: 'https://example.invalid',
+        httpClient: MockClient((req) async => http.Response('boom', 500)),
+      );
       await svc.ensureScheduled(
-        client: _digestClient(),
-        isPro: false,
+        client: client,
+        isPro: true,
         enabled: true,
         now: DateTime(2026, 11, 19, 8, 0),
       );
-      expect(gateway.scheduledDigests, isEmpty);
-      expect(gateway.cancelDigestCalls, 1);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(kDigestScheduledDateKey), isNull);
-
-      await svc.ensureScheduled(
-        client: _digestClient(),
-        isPro: true,
-        enabled: false,
-        now: DateTime(2026, 11, 19, 8, 0),
+      // Tomorrow still gets a digest — an honest one, not silence.
+      expect(gateway.scheduledDigests.length, 1);
+      expect(gateway.scheduledDigests.first['hour'], 7);
+      expect(gateway.scheduledDigests.first['hasSpike'], isFalse);
+      expect(
+        gateway.scheduledDigests.first['body'] as String,
+        contains('Couldn’t fetch today’s risk'),
       );
-      expect(gateway.scheduledDigests, isEmpty);
-      expect(gateway.cancelDigestCalls, 2);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(kDigestScheduledDateKey), '2026-11-19');
     });
+
+    test(
+      'non-Pro or disabled cancels the digest and never schedules',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'saved_intersections': _savedJson(),
+          kDigestScheduledDateKey: '2026-11-19',
+        });
+        final gateway = _FakeGateway();
+        final svc = MorningDigestService(notifications: gateway);
+        await svc.ensureScheduled(
+          client: _digestClient(),
+          isPro: false,
+          enabled: true,
+          now: DateTime(2026, 11, 19, 8, 0),
+        );
+        expect(gateway.scheduledDigests, isEmpty);
+        expect(gateway.cancelDigestCalls, 1);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(kDigestScheduledDateKey), isNull);
+
+        await svc.ensureScheduled(
+          client: _digestClient(),
+          isPro: true,
+          enabled: false,
+          now: DateTime(2026, 11, 19, 8, 0),
+        );
+        expect(gateway.scheduledDigests, isEmpty);
+        expect(gateway.cancelDigestCalls, 2);
+      },
+    );
   });
 
   group('sendTestDigest', () {
@@ -438,9 +468,7 @@ void main() {
       final svc = MorningDigestService(notifications: gateway);
       final client = RedunatorApiClient(
         baseUrl: 'https://example.invalid',
-        httpClient: MockClient(
-          (req) async => http.Response('boom', 500),
-        ),
+        httpClient: MockClient((req) async => http.Response('boom', 500)),
       );
       final ok = await svc.sendTestDigest(client: client);
       expect(ok, isFalse);
@@ -458,10 +486,7 @@ void main() {
       final ok = await svc.sendTestWeeklyDigest(client: _digestClient());
       expect(ok, isTrue);
       expect(gateway.shownNow.length, 1);
-      expect(
-        gateway.shownNow.first['title'],
-        'Redunator weekly digest (test)',
-      );
+      expect(gateway.shownNow.first['title'], 'Redunator weekly digest (test)');
       expect(gateway.shownNow.first['weekly'], isTrue);
       expect(gateway.shownNow.first['hasSpike'], isFalse);
     });

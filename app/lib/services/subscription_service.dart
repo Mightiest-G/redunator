@@ -57,10 +57,7 @@ const Set<String> kExclusiveProductIds = {
 };
 
 /// Every product the store is queried for.
-const Set<String> kAllProductIds = {
-  ...kProProductIds,
-  ...kExclusiveProductIds,
-};
+const Set<String> kAllProductIds = {...kProProductIds, ...kExclusiveProductIds};
 
 /// The tier a product id buys. Unknown ids buy nothing (free).
 SubscriptionTier tierForProduct(String productId) {
@@ -154,33 +151,40 @@ class SubscriptionService extends ChangeNotifier {
   static const String _kPurchaseToken = 'pro_purchase_token';
   static const String _kExpiryMs = 'pro_expiry_ms';
 
-    /// Test-only tier override, set at build time with
-    /// --dart-define=REDUNATOR_TEST_TIER=pro|exclusive. Off by default
-    /// and never set by a release build: it lets a test APK run the
-    /// paid background features (digest, background alerts, widget)
-    /// on a device without a store purchase, so they can be verified
-    /// before Play Console products exist. In-memory only — nothing is
-    /// written to prefs, so installing the real build afterwards
-    /// restores Free and the override can never leak into a purchase.
-    static const String _testTier = String.fromEnvironment(
-          'REDUNATOR_TEST_TIER',
-          defaultValue: 'none',
-        );
+  /// Test-only tier override, set at build time with
+  /// --dart-define=REDUNATOR_TEST_TIER=pro|exclusive. Off by default
+  /// and never set by a release build: it lets a test APK run the
+  /// paid background features (digest, background alerts, widget)
+  /// on a device without a store purchase, so they can be verified
+  /// before Play Console products exist. In-memory only — nothing is
+  /// written to prefs, so installing the real build afterwards
+  /// restores Free and the override can never leak into a purchase.
+  static const String _testTier = String.fromEnvironment(
+    'REDUNATOR_TEST_TIER',
+    defaultValue: 'none',
+  );
 
-    SubscriptionTier _tier = SubscriptionTier.free;
+  /// The test-tier override value, exposed for the background isolate
+  /// (see BackgroundAlertsService.isProActive): the background isolate
+  /// cannot use SubscriptionService (it needs a BillingStore), but the
+  /// dart-define is compiled in, so it reads the same value directly.
+  /// 'none' for every normal build.
+  static String get testTierOverride => _testTier;
 
-    /// Current tier, with the test override applied.
-    SubscriptionTier get tier {
-          if (_testTier == 'exclusive') return SubscriptionTier.exclusive;
-          if (_testTier == 'pro') return SubscriptionTier.pro;
-          return _tier;
-    }
+  SubscriptionTier _tier = SubscriptionTier.free;
 
-    /// True for Pro and Exclusive (every paid tier).
-    bool get isPro => tier != SubscriptionTier.free;
+  /// Current tier, with the test override applied.
+  SubscriptionTier get tier {
+    if (_testTier == 'exclusive') return SubscriptionTier.exclusive;
+    if (_testTier == 'pro') return SubscriptionTier.pro;
+    return _tier;
+  }
 
-    /// True only for Exclusive.
-    bool get isExclusive => tier == SubscriptionTier.exclusive;
+  /// True for Pro and Exclusive (every paid tier).
+  bool get isPro => tier != SubscriptionTier.free;
+
+  /// True only for Exclusive.
+  bool get isExclusive => tier == SubscriptionTier.exclusive;
 
   /// Products the store returned (empty until init() queries them).
   List<ProductDetails> products = [];
@@ -359,9 +363,7 @@ class SubscriptionService extends ChangeNotifier {
       // stored product id become a tier.
       final wasPro = prefs.getBool(_kIsPro) ?? false;
       final productId = prefs.getString(_kProductId);
-      _tier = wasPro
-          ? tierForProduct(productId ?? '')
-          : SubscriptionTier.free;
+      _tier = wasPro ? tierForProduct(productId ?? '') : SubscriptionTier.free;
       if (wasPro && _tier == SubscriptionTier.free) {
         // Old Pro state with no (or an unknown) product id: keep Pro
         // rather than silently dropping a paid user.

@@ -7,6 +7,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart'; // ignore: deprecated_member_use
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/client.dart';
 import 'config.dart';
@@ -116,9 +117,7 @@ class _HomePageState extends State<_HomePage> {
     _digest = MorningDigestService(notifications: _notifications);
     _areaWatch = AreaWatchService();
     unawaited(_areaWatch.load());
-    _spoken = SpokenAlertService(
-      enabled: widget.settings.spokenAlertsEnabled,
-    );
+    _spoken = SpokenAlertService(enabled: widget.settings.spokenAlertsEnabled);
     _widgetService = WidgetService();
     // Subscriptions: load cached tier, subscribe to the purchase
     // stream and query the store for the subscription products.
@@ -147,6 +146,11 @@ class _HomePageState extends State<_HomePage> {
     // so sync once after the first frame too.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => unawaited(_syncProFeatures()),
+    );
+    // Exact alarms make the 07:00 digest land on time: ask once, up
+    // front, instead of leaving it behind a Settings button.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_maybePromptExactAlarms()),
     );
   }
 
@@ -181,6 +185,48 @@ class _HomePageState extends State<_HomePage> {
     } catch (_) {}
     try {
       if (sub.isExclusive) await _widgetService.refresh(client: client);
+    } catch (_) {}
+  }
+
+  /// One-time prompt for the exact-alarm permission, the thing that
+  /// makes the 07:00 digest land on time. Only when Pro is on and the
+  /// digest toggle is on, only once per install, and never while the
+  /// page is gone. A denial just falls back to inexact scheduling
+  /// (Settings still has the button).
+  Future<void> _maybePromptExactAlarms() async {
+    final sub = _subscription;
+    if (sub == null || !mounted) return;
+    if (!sub.isPro || !widget.settings.morningDigestEnabled) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('exact_alarm_prompt_shown') == true) return;
+      if (await _notifications.canScheduleExactAlarms()) return;
+      await prefs.setBool('exact_alarm_prompt_shown', true);
+      if (!mounted) return;
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Let the 7am digest land on time?'),
+          content: const Text(
+            'Redunator needs permission to set exact alarms, or the '
+            'morning digest can arrive late. You can change this later '
+            'in Settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Allow'),
+            ),
+          ],
+        ),
+      );
+      if (allow == true && mounted) {
+        await _bgAlerts.requestExactAlarmsPermission();
+      }
     } catch (_) {}
   }
 

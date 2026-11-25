@@ -14,6 +14,14 @@ import 'package:redunator/services/background_alerts.dart';
 import 'package:redunator/services/local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Whether the suite runs with the build-time test-tier override.
+// The override activates the background check independent of prefs,
+// so the prefs-path expectations below only hold without it.
+const _testTierOverride = String.fromEnvironment(
+  'REDUNATOR_TEST_TIER',
+  defaultValue: 'none',
+);
+
 LiveRisk _liveRisk({
   required double distanceM,
   required String dailyBand,
@@ -262,42 +270,67 @@ void main() {
       // A different camera is unaffected.
       expect(dedupe.shouldAlert('2251', today), isTrue);
       // Tomorrow it alerts again.
-      expect(
-        dedupe.shouldAlert('1413', DateTime(2026, 11, 20, 8, 0)),
-        isTrue,
-      );
+      expect(dedupe.shouldAlert('1413', DateTime(2026, 11, 20, 8, 0)), isTrue);
     });
   });
 
-  group('isProActive', () {
-    test('false without the flag, true when set', () async {
-      var prefs = await SharedPreferences.getInstance();
-      expect(BackgroundAlertsService.isProActive(prefs), isFalse);
-      SharedPreferences.setMockInitialValues({'is_pro': true});
-      prefs = await SharedPreferences.getInstance();
-      expect(BackgroundAlertsService.isProActive(prefs), isTrue);
-    });
-
-    test('false when the cached Pro subscription expired', () async {
-      SharedPreferences.setMockInitialValues({
-        'is_pro': true,
-        'pro_expiry_ms':
-            DateTime.now().millisecondsSinceEpoch - 1000,
+  group(
+    'isProActive',
+    skip: _testTierOverride != 'none'
+        ? 'test-tier override active: prefs path not applicable'
+        : null,
+    () {
+      test('false without the flag, true when set', () async {
+        var prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isFalse);
+        SharedPreferences.setMockInitialValues({'is_pro': true});
+        prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isTrue);
       });
-      final prefs = await SharedPreferences.getInstance();
-      expect(BackgroundAlertsService.isProActive(prefs), isFalse);
-    });
 
-    test('true when the expiry is in the future', () async {
-      SharedPreferences.setMockInitialValues({
-        'is_pro': true,
-        'pro_expiry_ms':
-            DateTime.now().millisecondsSinceEpoch + 86400000,
+      test('false when the cached Pro subscription expired', () async {
+        SharedPreferences.setMockInitialValues({
+          'is_pro': true,
+          'pro_expiry_ms': DateTime.now().millisecondsSinceEpoch - 1000,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isFalse);
       });
-      final prefs = await SharedPreferences.getInstance();
-      expect(BackgroundAlertsService.isProActive(prefs), isTrue);
-    });
-  });
+
+      test('true when the expiry is in the future', () async {
+        SharedPreferences.setMockInitialValues({
+          'is_pro': true,
+          'pro_expiry_ms': DateTime.now().millisecondsSinceEpoch + 86400000,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isTrue);
+      });
+    },
+  );
+
+  group(
+    'isProActive with test-tier override',
+    skip: _testTierOverride != 'exclusive'
+        ? 'run with --dart-define=REDUNATOR_TEST_TIER=exclusive'
+        : null,
+    () {
+      test('true with empty prefs', () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isTrue);
+        expect(BackgroundAlertsService.isExclusiveActive(prefs), isTrue);
+      });
+
+      test('cached free tier does not matter under the override', () async {
+        SharedPreferences.setMockInitialValues({
+          'subscription_tier': 'free',
+          'pro_expiry_ms': DateTime.now().millisecondsSinceEpoch - 1000,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        expect(BackgroundAlertsService.isProActive(prefs), isTrue);
+      });
+    },
+  );
 
   group('syncWithPro', () {
     test('registers when Pro and enabled, cancels otherwise', () async {
@@ -318,32 +351,37 @@ void main() {
   });
 
   group('runBackgroundCheck', () {
-    test('non-Pro run does nothing: no location, no HTTP, no alert',
-        () async {
-      SharedPreferences.setMockInitialValues({'is_pro': false});
-      var positionCalls = 0;
-      var httpCalls = 0;
-      final gateway = _FakeGateway();
-      final svc = BackgroundAlertsService(
-        scheduler: _FakeScheduler(),
-        notifications: gateway,
-        positionOverride: () async {
-          positionCalls++;
-          return _pos(41.94, -87.64);
-        },
-        clientFactory: ({required String baseUrl}) => RedunatorApiClient(
-          baseUrl: baseUrl,
-          httpClient: MockClient((req) async {
-            httpCalls++;
-            return http.Response('{}', 200);
-          }),
-        ),
-      );
-      await svc.runBackgroundCheck();
-      expect(positionCalls, 0);
-      expect(httpCalls, 0);
-      expect(gateway.alerts, isEmpty);
-    });
+    test(
+      'non-Pro run does nothing: no location, no HTTP, no alert',
+      skip: _testTierOverride != 'none'
+          ? 'test-tier override active: run is Pro'
+          : null,
+      () async {
+        SharedPreferences.setMockInitialValues({'is_pro': false});
+        var positionCalls = 0;
+        var httpCalls = 0;
+        final gateway = _FakeGateway();
+        final svc = BackgroundAlertsService(
+          scheduler: _FakeScheduler(),
+          notifications: gateway,
+          positionOverride: () async {
+            positionCalls++;
+            return _pos(41.94, -87.64);
+          },
+          clientFactory: ({required String baseUrl}) => RedunatorApiClient(
+            baseUrl: baseUrl,
+            httpClient: MockClient((req) async {
+              httpCalls++;
+              return http.Response('{}', 200);
+            }),
+          ),
+        );
+        await svc.runBackgroundCheck();
+        expect(positionCalls, 0);
+        expect(httpCalls, 0);
+        expect(gateway.alerts, isEmpty);
+      },
+    );
 
     test('Pro run alerts once per camera per day', () async {
       SharedPreferences.setMockInitialValues({
@@ -360,9 +398,7 @@ void main() {
           httpClient: MockClient((req) async {
             if (req.url.path == '/live/risk') {
               return http.Response(
-                jsonEncode(
-                  _liveRiskJson(distanceM: 120, dailyBand: 'HIGH'),
-                ),
+                jsonEncode(_liveRiskJson(distanceM: 120, dailyBand: 'HIGH')),
                 200,
               );
             }
@@ -395,9 +431,7 @@ void main() {
         },
         clientFactory: ({required String baseUrl}) => RedunatorApiClient(
           baseUrl: baseUrl,
-          httpClient: MockClient(
-            (req) async => http.Response('{}', 200),
-          ),
+          httpClient: MockClient((req) async => http.Response('{}', 200)),
         ),
       );
       await svc.runBackgroundCheck();
@@ -405,8 +439,7 @@ void main() {
       expect(gateway.alerts, isEmpty);
     });
 
-    test('no camera nearby (404) is not an error and alerts nothing',
-        () async {
+    test('no camera nearby (404) is not an error and alerts nothing', () async {
       SharedPreferences.setMockInitialValues({'is_pro': true});
       final gateway = _FakeGateway();
       final svc = BackgroundAlertsService(
@@ -445,9 +478,7 @@ void main() {
           httpClient: MockClient((req) async {
             if (req.url.path == '/live/risk') {
               return http.Response(
-                jsonEncode(
-                  _liveRiskJson(distanceM: 120, dailyBand: 'MEDIUM'),
-                ),
+                jsonEncode(_liveRiskJson(distanceM: 120, dailyBand: 'MEDIUM')),
                 200,
               );
             }

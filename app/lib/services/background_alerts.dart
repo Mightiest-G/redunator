@@ -148,8 +148,7 @@ class BackgroundAlertsService {
   final BackgroundTaskScheduler _scheduler;
   final NotificationGateway _notifications;
   final Future<Position?> Function()? _positionOverride;
-  final RedunatorApiClient Function({required String baseUrl})
-  _clientFactory;
+  final RedunatorApiClient Function({required String baseUrl}) _clientFactory;
 
   /// Registers WorkManager's background entry point. Call once from
   /// main(), before runApp.
@@ -161,8 +160,14 @@ class BackgroundAlertsService {
   /// the legacy 'is_pro' fallback, and 'pro_expiry_ms'): true only
   /// when a paid tier is cached and not expired. The background
   /// isolate cannot use SubscriptionService (it needs a BillingStore),
-  /// so it reads the same keys directly.
+  /// so it reads the same keys directly — plus the build-time test
+  /// tier override, which is compiled in and therefore visible in
+  /// any isolate. Without that last part, a test build's background
+  /// run exits immediately (the override is in-memory only, never in
+  /// prefs) and the digest is never refreshed from the background.
   static bool isProActive(SharedPreferences prefs) {
+    final testTier = SubscriptionService.testTierOverride;
+    if (testTier == 'pro' || testTier == 'exclusive') return true;
     final tier = prefs.getString(SubscriptionService.tierPrefsKey);
     if (tier != null) {
       if (tier == SubscriptionTier.free.name) return false;
@@ -174,8 +179,10 @@ class BackgroundAlertsService {
 
   /// True only when the cached tier is Exclusive and not expired.
   /// There is no legacy equivalent (Exclusive did not exist before
-  /// tiers), so a missing tier key means false.
+  /// tiers), so a missing tier key means false. The test-tier
+  /// override counts too (same reason as [isProActive]).
   static bool isExclusiveActive(SharedPreferences prefs) {
+    if (SubscriptionService.testTierOverride == 'exclusive') return true;
     if (prefs.getString(SubscriptionService.tierPrefsKey) !=
         SubscriptionTier.exclusive.name) {
       return false;
@@ -185,8 +192,7 @@ class BackgroundAlertsService {
 
   static bool _expired(SharedPreferences prefs) {
     final expiryMs = prefs.getInt('pro_expiry_ms');
-    return expiryMs != null &&
-        expiryMs < DateTime.now().millisecondsSinceEpoch;
+    return expiryMs != null && expiryMs < DateTime.now().millisecondsSinceEpoch;
   }
 
   /// Registers the 15-minute background task when Pro is on and the
@@ -194,10 +200,7 @@ class BackgroundAlertsService {
   /// whenever isPro or the toggle changes. Throws on scheduler
   /// failure — callers (main, Settings) catch it so a scheduling
   /// failure never breaks the UI.
-  Future<void> syncWithPro({
-    required bool isPro,
-    required bool enabled,
-  }) async {
+  Future<void> syncWithPro({required bool isPro, required bool enabled}) async {
     if (isPro && enabled) {
       await _scheduler.registerPeriodic();
     } else {
@@ -309,26 +312,24 @@ class BackgroundAlertsService {
       // when the alert check found nothing: this is also what
       // re-schedules the digest after a reboot.
       try {
-        await MorningDigestService(
-          notifications: _notifications,
-        ).ensureScheduled(
-          client: client,
-          isPro: true,
-          enabled: prefs.getBool(kDigestEnabledKey) ?? true,
-        );
+        await MorningDigestService(notifications: _notifications)
+            .ensureScheduled(
+              client: client,
+              isPro: true,
+              enabled: prefs.getBool(kDigestEnabledKey) ?? true,
+            );
       } catch (_) {
         // Best-effort only.
       }
       // Weekly digest (Exclusive) + home-screen widget (Exclusive):
       // same refresh, same reboot survival.
       try {
-        await MorningDigestService(
-          notifications: _notifications,
-        ).ensureWeeklyScheduled(
-          client: client,
-          isExclusive: isExclusiveActive(prefs),
-          enabled: prefs.getBool(kWeeklyDigestEnabledKey) ?? true,
-        );
+        await MorningDigestService(notifications: _notifications)
+            .ensureWeeklyScheduled(
+              client: client,
+              isExclusive: isExclusiveActive(prefs),
+              enabled: prefs.getBool(kWeeklyDigestEnabledKey) ?? true,
+            );
       } catch (_) {}
       try {
         if (isExclusiveActive(prefs)) {
@@ -353,11 +354,7 @@ class BackgroundAlertsService {
       if (areas.isEmpty) return;
       final cameras = await client.getIntersections(limit: 300);
       final inAnyArea = cameras
-          .where(
-            (c) => areas.any(
-              (a) => camerasInArea([c], a).isNotEmpty,
-            ),
-          )
+          .where((c) => areas.any((a) => camerasInArea([c], a).isNotEmpty))
           .toList();
       if (inAnyArea.isEmpty) return;
       final batch = await client.predictRiskBatch(
@@ -414,9 +411,8 @@ void backgroundAlertsCallbackDispatcher() {
       await LocalNotifications.initTimeZone();
       final notifications = LocalNotifications();
       await notifications.init();
-      await BackgroundAlertsService(
-        notifications: notifications,
-      ).runBackgroundCheck();
+      await BackgroundAlertsService(notifications: notifications)
+          .runBackgroundCheck();
       return true;
     } catch (_) {
       return false;

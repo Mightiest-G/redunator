@@ -51,6 +51,7 @@ DateTime nextWeekday(DateTime now, int weekday, int hour) {
   if (!d.isAfter(now)) d = d.add(const Duration(days: 7));
   return d;
 }
+
 /// How many saved cameras the digest lists before collapsing the
 /// rest into an "and N more" line (notification bodies are short).
 const int kDigestMaxRows = 3;
@@ -123,6 +124,12 @@ String buildNoSavedDigestText() =>
     'No saved intersections yet — save the cameras on your route and '
     'tomorrow’s digest will show their risk for the day.';
 
+/// The digest body when today's predictions could not be fetched:
+/// honest about the miss, never an empty digest, and never stale
+/// numbers presented as today's.
+String fallbackDigestText() =>
+    'Couldn’t fetch today’s risk — open the app to check your saved cameras.';
+
 class MorningDigestService {
   MorningDigestService({NotificationGateway? notifications})
     : _notifications = notifications ?? LocalNotifications();
@@ -154,18 +161,28 @@ class MorningDigestService {
     if (!force && prefs.getString(kDigestScheduledDateKey) == today) {
       return;
     }
+    // Fetch first: a failed fetch must not leave tomorrow with no
+    // digest at all, so the schedule below runs either way — with
+    // fresh numbers when the fetch worked, with the honest fallback
+    // body when it did not. The next app start / background run
+    // retries with fresh data.
+    ({String body, bool hasSpike})? built;
     try {
       final saved = _readSaved(prefs);
-      final built = saved.isEmpty
+      built = saved.isEmpty
           ? (body: buildNoSavedDigestText(), hasSpike: false)
           : await _buildDigestBody(client, saved, now ?? DateTime.now());
+    } catch (_) {
+      built = null;
+    }
+    try {
       await _notifications.scheduleDailyDigest(
         title: 'Redunator morning digest',
-        body: built.body,
+        body: built?.body ?? fallbackDigestText(),
         hour: kDigestHour,
         // A digest containing a spike sounds the spike alert
         // instead of the gentle morning one.
-        hasSpike: built.hasSpike,
+        hasSpike: built?.hasSpike ?? false,
       );
       await prefs.setString(kDigestScheduledDateKey, today);
     } catch (_) {
@@ -221,15 +238,22 @@ class MorningDigestService {
     if (!force && prefs.getString(kWeeklyDigestScheduledDateKey) == key) {
       return;
     }
+    // Same pattern as the daily digest: a failed fetch schedules the
+    // honest fallback instead of leaving the Sunday digest unscheduled.
+    String? body;
     try {
       final saved = _readSaved(prefs);
-      final body = saved.isEmpty
+      body = saved.isEmpty
           ? 'No saved intersections yet — save the cameras on your '
                 'route and the Sunday digest will review their week.'
           : await _buildWeeklyBody(client, saved);
+    } catch (_) {
+      body = null;
+    }
+    try {
       await _notifications.scheduleWeeklyDigest(
         title: 'Redunator weekly digest',
-        body: body,
+        body: body ?? 'Couldn’t fetch this week’s review — open the app to check your saved cameras.',
         weekday: kWeeklyDigestWeekday,
         hour: kWeeklyDigestHour,
       );
@@ -279,9 +303,7 @@ class MorningDigestService {
     await Future.wait(
       saved.map((s) async {
         try {
-          final trends = await client.getViolationTrends(
-            cameraId: s.cameraId,
-          );
+          final trends = await client.getViolationTrends(cameraId: s.cameraId);
           final summary = weeklySummary(
             name: s.intersection,
             days: trends.days,
@@ -341,9 +363,7 @@ class MorningDigestService {
       // Spike flags only matter for the rows actually shown.
       if (rows.length < kDigestMaxRows) {
         try {
-          final trends = await client.getViolationTrends(
-            cameraId: s.cameraId,
-          );
+          final trends = await client.getViolationTrends(cameraId: s.cameraId);
           spike = isSpike(
             p.dailyPrediction,
             meanObservedWindow(trends.days, 7),
