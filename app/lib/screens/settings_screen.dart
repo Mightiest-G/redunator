@@ -181,6 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// just leave a one-line note — the diagnostics must never break
   /// Settings.
   Future<void> _refreshDigestDiagnostics() async {
+    if (!mounted) return;
     setState(() => _loadingDigestDiagnostics = true);
     try {
       final pending = await widget.digest.pendingDigestNotifications();
