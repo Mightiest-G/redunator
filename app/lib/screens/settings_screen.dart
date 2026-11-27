@@ -77,6 +77,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _testDigestResult;
   bool _sendingTestWeeklyDigest = false;
   String? _testWeeklyDigestResult;
+  String? _digestDiagnosticsText;
+  bool _loadingDigestDiagnostics = false;
+  bool _reschedulingDigest = false;
+  String? _rescheduleDigestResult;
   bool _updatingWidget = false;
   String? _widgetResult;
 
@@ -86,6 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _baseUrlController.text = widget.settings.baseUrl;
     _loadVersionLabel();
     _refreshBackgroundStatus();
+    unawaited(_refreshDigestDiagnostics());
   }
 
   /// Permission state for the background-alerts section. Failures
@@ -168,6 +173,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? 'Test weekly digest sent — check your notifications.'
           : 'Could not build the weekly digest (are you online?).';
     });
+  }
+
+  /// Loads the morning-digest diagnostics (pending scheduled
+  /// notifications, last schedule attempt, exact-alarm state, stored
+  /// scheduled date) and renders them as plain text lines. Failures
+  /// just leave a one-line note — the diagnostics must never break
+  /// Settings.
+  Future<void> _refreshDigestDiagnostics() async {
+    setState(() => _loadingDigestDiagnostics = true);
+    try {
+      final pending = await widget.digest.pendingDigestNotifications();
+      final attempt = await widget.digest.lastScheduleAttempt();
+      final exact = await widget.digest.exactAlarmsAllowed();
+      final storedDate = await widget.digest.lastScheduledDate();
+      if (!mounted) return;
+      final lines = <String>[];
+      lines.add('Pending scheduled notifications:');
+      if (pending.isEmpty) {
+        lines.add('  none — no digest alarm is currently scheduled.');
+      } else {
+        for (final p in pending) {
+          final firstBodyLine = (p.body ?? '').split('\n').first;
+          final body = firstBodyLine.isEmpty ? '' : ' — $firstBodyLine';
+          lines.add('  • id ${p.id}: ${p.title ?? '(no title)'}$body');
+        }
+      }
+      lines.add(
+        'Last schedule attempt: ${attempt == null ? 'none recorded yet' : _formatDigestAttempt(attempt)}',
+      );
+      lines.add('Exact alarms allowed: ${exact ? 'yes' : 'no'}');
+      lines.add('Stored scheduled date: ${storedDate ?? 'none'}');
+      setState(() {
+        _loadingDigestDiagnostics = false;
+        _digestDiagnosticsText = lines.join('\n');
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingDigestDiagnostics = false;
+        _digestDiagnosticsText = 'Could not load diagnostics.';
+      });
+    }
+  }
+
+  static String _formatDigestAttempt(DigestScheduleAttempt attempt) {
+    final exact = attempt.exact == null
+        ? ''
+        : attempt.exact!
+        ? ' (exact)'
+        : ' (inexact)';
+    final scheduledFor = attempt.scheduledFor == null
+        ? ''
+        : ' — scheduled for ${attempt.scheduledFor}';
+    final error = attempt.error == null
+        ? ''
+        : ' — error: ${attempt.error}';
+    return '${attempt.attemptedAt} — ${attempt.outcome}$exact$scheduledFor$error';
+  }
+
+  /// Forces a digest (re)schedule with fresh data, then refreshes
+  /// the diagnostics so the recorded outcome is visible on screen
+  /// immediately.
+  Future<void> _rescheduleDigestNow() async {
+    setState(() {
+      _reschedulingDigest = true;
+      _rescheduleDigestResult = null;
+    });
+    try {
+      await widget.digest.ensureScheduled(
+        client: widget.client,
+        isPro: widget.subscription.isPro,
+        enabled: widget.settings.morningDigestEnabled,
+        force: true,
+      );
+    } catch (_) {
+      // ensureScheduled swallows its own failures; the diagnostics
+      // below show the recorded outcome either way.
+    }
+    if (!mounted) return;
+    setState(() {
+      _reschedulingDigest = false;
+      _rescheduleDigestResult =
+          'Re-schedule requested — see the diagnostics below.';
+    });
+    await _refreshDigestDiagnostics();
   }
 
   Future<void> _updateWidgetNow() async {
@@ -623,6 +713,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(_testDigestResult!),
+                  ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Morning digest diagnostics',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'If the 07:00 digest misses, this shows whether '
+                  'the alarm is actually scheduled and what the last '
+                  'scheduling attempt did.',
+                ),
+                const SizedBox(height: 8),
+                if (_digestDiagnosticsText != null)
+                  Text(_digestDiagnosticsText!),
+                if (_loadingDigestDiagnostics)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('Loading diagnostics…'),
+                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _loadingDigestDiagnostics
+                          ? null
+                          : () {
+                              unawaited(widget.sound.playTap());
+                              unawaited(_refreshDigestDiagnostics());
+                            },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Refresh diagnostics'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _reschedulingDigest
+                          ? null
+                          : () {
+                              unawaited(widget.sound.playTap());
+                              unawaited(_rescheduleDigestNow());
+                            },
+                      icon: const Icon(Icons.alarm),
+                      label: Text(
+                        _reschedulingDigest
+                            ? 'Re-scheduling…'
+                            : 'Re-schedule digest now',
+                      ),
+                    ),
+                  ],
+                ),
+                if (_rescheduleDigestResult != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(_rescheduleDigestResult!),
                   ),
               ],
             );

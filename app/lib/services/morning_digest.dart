@@ -66,6 +66,71 @@ const String kDigestScheduledDateKey = 'morning_digest_scheduled_date';
 /// this key; the background isolate reads it directly).
 const String kDigestEnabledKey = 'morning_digest_enabled';
 
+/// SharedPreferences key holding the last digest-schedule attempt as
+/// JSON (see [DigestScheduleAttempt]). Written on every
+/// [MorningDigestService.ensureScheduled] call — including skips and
+/// cancellations — so the Settings diagnostics can show what the
+/// scheduler actually did, instead of guessing after a missed 07:00.
+const String kDigestLastScheduleAttemptKey =
+    'morning_digest_last_schedule_attempt';
+
+/// One recorded digest-schedule attempt. [outcome] is 'scheduled',
+/// 'skipped' (already scheduled today), 'cancelled' (not Pro or the
+/// toggle is off) or 'failed' (the schedule call threw). [exact] is
+/// true when the alarm went out exact, false when inexact, null when
+/// no scheduling was attempted. [scheduledFor] is the next 07:00
+/// device-local time the digest was scheduled for ('scheduled' and
+/// 'failed' outcomes only). [error] carries the schedule failure,
+/// if any.
+class DigestScheduleAttempt {
+  const DigestScheduleAttempt({
+    required this.attemptedAt,
+    required this.outcome,
+    required this.exact,
+    required this.scheduledFor,
+    required this.error,
+  });
+
+  final DateTime attemptedAt;
+  final String outcome;
+  final bool? exact;
+  final DateTime? scheduledFor;
+  final String? error;
+
+  Map<String, dynamic> toJson() => {
+    'attemptedAt': attemptedAt.toIso8601String(),
+    'outcome': outcome,
+    'exact': exact,
+    'scheduledFor': scheduledFor?.toIso8601String(),
+    'error': error,
+  };
+
+  /// Null when the stored JSON is missing, malformed, or lacks the
+  /// required fields — a corrupt record must never break the
+  /// diagnostics.
+  static DigestScheduleAttempt? fromJson(String raw) {
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final attemptedAt = DateTime.tryParse(
+        map['attemptedAt'] as String? ?? '',
+      );
+      final outcome = map['outcome'] as String?;
+      if (attemptedAt == null || outcome == null) return null;
+      return DigestScheduleAttempt(
+        attemptedAt: attemptedAt,
+        outcome: outcome,
+        exact: map['exact'] as bool?,
+        scheduledFor: map['scheduledFor'] == null
+            ? null
+            : DateTime.tryParse(map['scheduledFor'] as String),
+        error: map['error'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 /// Device-local calendar date as yyyy-MM-dd. Shared with the
 /// background-alert dedupe (one alert per camera per day).
 String dateKey(DateTime d) =>
@@ -144,7 +209,9 @@ class MorningDigestService {
   /// a save/unsave changes the list). Failures are swallowed: a
   /// missed refresh just leaves yesterday's scheduled digest in
   /// place (or none), it never crashes the app or the background
-  /// task.
+  /// task. Every call records an attempt (see
+  /// [DigestScheduleAttempt]) so a missed 07:00 is diagnosable from
+  /// the Settings screen instead of a guess.
   Future<void> ensureScheduled({
     required RedunatorApiClient client,
     required bool isPro,
@@ -153,12 +220,33 @@ class MorningDigestService {
     bool force = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final today = dateKey(now ?? DateTime.now());
+    final at = now ?? DateTime.now();
+    final today = dateKey(at);
     if (!isPro || !enabled) {
       await _cancel(prefs);
+      await _recordAttempt(
+        prefs,
+        DigestScheduleAttempt(
+          attemptedAt: at,
+          outcome: 'cancelled',
+          exact: null,
+          scheduledFor: null,
+          error: null,
+        ),
+      );
       return;
     }
     if (!force && prefs.getString(kDigestScheduledDateKey) == today) {
+      await _recordAttempt(
+        prefs,
+        DigestScheduleAttempt(
+          attemptedAt: at,
+          outcome: 'skipped',
+          exact: null,
+          scheduledFor: null,
+          error: null,
+        ),
+      );
       return;
     }
     // Fetch first: a failed fetch must not leave tomorrow with no
@@ -171,9 +259,22 @@ class MorningDigestService {
       final saved = _readSaved(prefs);
       built = saved.isEmpty
           ? (body: buildNoSavedDigestText(), hasSpike: false)
-          : await _buildDigestBody(client, saved, now ?? DateTime.now());
+          : await _buildDigestBody(client, saved, at);
     } catch (_) {
       built = null;
+    }
+    // The next 07:00 device-local — what scheduleDailyDigest aims
+    // at — so the attempt record carries the scheduled-for time the
+    // plugin itself does not report back.
+    var scheduledFor = DateTime(at.year, at.month, at.day, kDigestHour);
+    if (!scheduledFor.isAfter(at)) {
+      scheduledFor = scheduledFor.add(const Duration(days: 1));
+    }
+    bool? exact;
+    try {
+      exact = await _notifications.canScheduleExactAlarms();
+    } catch (_) {
+      exact = null;
     }
     try {
       await _notifications.scheduleDailyDigest(
@@ -185,11 +286,72 @@ class MorningDigestService {
         hasSpike: built?.hasSpike ?? false,
       );
       await prefs.setString(kDigestScheduledDateKey, today);
-    } catch (_) {
+      await _recordAttempt(
+        prefs,
+        DigestScheduleAttempt(
+          attemptedAt: at,
+          outcome: 'scheduled',
+          exact: exact,
+          scheduledFor: scheduledFor,
+          error: null,
+        ),
+      );
+    } catch (e) {
       // Leave any previously scheduled digest alone; retry on the
-      // next app start / background run.
+      // next app start / background run. The failure is recorded so
+      // the Settings diagnostics can show it.
+      await _recordAttempt(
+        prefs,
+        DigestScheduleAttempt(
+          attemptedAt: at,
+          outcome: 'failed',
+          exact: exact,
+          scheduledFor: scheduledFor,
+          error: e.toString(),
+        ),
+      );
     }
   }
+
+  /// Persists one schedule attempt for the Settings diagnostics.
+  /// Best-effort only: a diagnostics write must never break
+  /// scheduling.
+  Future<void> _recordAttempt(
+    SharedPreferences prefs,
+    DigestScheduleAttempt attempt,
+  ) async {
+    try {
+      await prefs.setString(
+        kDigestLastScheduleAttemptKey,
+        jsonEncode(attempt.toJson()),
+      );
+    } catch (_) {}
+  }
+
+  /// The last recorded schedule attempt, if any. Null when nothing
+  /// has been recorded yet or the stored JSON is unreadable.
+  Future<DigestScheduleAttempt?> lastScheduleAttempt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(kDigestLastScheduleAttemptKey);
+    if (raw == null) return null;
+    return DigestScheduleAttempt.fromJson(raw);
+  }
+
+  /// The date (yyyy-MM-dd, device-local) the digest was last
+  /// scheduled for, if any.
+  Future<String?> lastScheduledDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(kDigestScheduledDateKey);
+  }
+
+  /// Digest notifications still pending with the plugin (daily 1001,
+  /// weekly 1002), for the Settings diagnostics.
+  Future<List<PendingNotificationSummary>> pendingDigestNotifications() =>
+      _notifications.pendingDigestNotifications();
+
+  /// Exact-alarm permission state, for the Settings diagnostics.
+  Future<bool> exactAlarmsAllowed() =>
+      _notifications.canScheduleExactAlarms();
 
   /// Builds the digest with live data and shows it immediately
   /// (Settings "Send test digest" button). Returns false when the

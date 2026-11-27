@@ -17,6 +17,8 @@ class _FakeGateway implements NotificationGateway {
   final List<Map<String, Object?>> scheduledDigests = [];
   final List<Map<String, Object?>> shownNow = [];
   int cancelDigestCalls = 0;
+  bool throwOnSchedule = false;
+  List<PendingNotificationSummary> pendingDigests = [];
 
   @override
   Future<void> showBackgroundAlert({
@@ -49,6 +51,7 @@ class _FakeGateway implements NotificationGateway {
     required int hour,
     bool hasSpike = false,
   }) async {
+    if (throwOnSchedule) throw StateError('schedule boom');
     scheduledDigests.add({
       'title': title,
       'body': body,
@@ -85,6 +88,10 @@ class _FakeGateway implements NotificationGateway {
 
   @override
   Future<bool> canScheduleExactAlarms() async => false;
+
+  @override
+  Future<List<PendingNotificationSummary>> pendingDigestNotifications() async =>
+      pendingDigests;
 
   @override
   Future<void> requestExactAlarmsPermission() async {}
@@ -431,6 +438,155 @@ void main() {
         expect(gateway.cancelDigestCalls, 2);
       },
     );
+  });
+
+  group('schedule attempt recording', () {
+    test('scheduled attempt records outcome, exact flag and next 07:00', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway();
+      final svc = MorningDigestService(notifications: gateway);
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: true,
+        enabled: true,
+        now: DateTime(2026, 11, 19, 8, 0),
+      );
+      final attempt = await svc.lastScheduleAttempt();
+      expect(attempt, isNotNull);
+      expect(attempt!.outcome, 'scheduled');
+      // The fake gateway reports exact alarms as unavailable.
+      expect(attempt.exact, isFalse);
+      // 08:00 is past 07:00, so the digest is scheduled for tomorrow.
+      expect(attempt.scheduledFor, DateTime(2026, 11, 20, 7, 0));
+      expect(attempt.error, isNull);
+      expect(await svc.lastScheduledDate(), '2026-11-19');
+    });
+
+    test('second call the same day records a skip', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway();
+      final svc = MorningDigestService(notifications: gateway);
+      final now = DateTime(2026, 11, 19, 8, 0);
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: true,
+        enabled: true,
+        now: now,
+      );
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: true,
+        enabled: true,
+        now: now,
+      );
+      expect(gateway.scheduledDigests.length, 1);
+      final attempt = await svc.lastScheduleAttempt();
+      expect(attempt, isNotNull);
+      expect(attempt!.outcome, 'skipped');
+      expect(attempt.exact, isNull);
+      expect(attempt.scheduledFor, isNull);
+    });
+
+    test('a schedule failure is recorded with the error', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway()..throwOnSchedule = true;
+      final svc = MorningDigestService(notifications: gateway);
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: true,
+        enabled: true,
+        now: DateTime(2026, 11, 19, 8, 0),
+      );
+      expect(gateway.scheduledDigests, isEmpty);
+      final attempt = await svc.lastScheduleAttempt();
+      expect(attempt, isNotNull);
+      expect(attempt!.outcome, 'failed');
+      expect(attempt.error, contains('schedule boom'));
+      expect(attempt.scheduledFor, DateTime(2026, 11, 20, 7, 0));
+      // A failed schedule must not mark the day as scheduled.
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(kDigestScheduledDateKey), isNull);
+    });
+
+    test('cancelled attempt is recorded when not Pro', () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+        kDigestScheduledDateKey: '2026-11-19',
+      });
+      final gateway = _FakeGateway();
+      final svc = MorningDigestService(notifications: gateway);
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: false,
+        enabled: true,
+        now: DateTime(2026, 11, 19, 8, 0),
+      );
+      expect(gateway.cancelDigestCalls, 1);
+      final attempt = await svc.lastScheduleAttempt();
+      expect(attempt, isNotNull);
+      expect(attempt!.outcome, 'cancelled');
+    });
+
+    test('diagnostics readers surface pending, exact state and stored date',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'saved_intersections': _savedJson(),
+      });
+      final gateway = _FakeGateway()
+        ..pendingDigests = [
+          const PendingNotificationSummary(
+            id: 1001,
+            title: 'Redunator morning digest',
+            body: 'LAKE SHORE DR AND BELMONT: 53.0/day HIGH',
+          ),
+        ];
+      final svc = MorningDigestService(notifications: gateway);
+      final pending = await svc.pendingDigestNotifications();
+      expect(pending.length, 1);
+      expect(pending.first.id, 1001);
+      expect(await svc.exactAlarmsAllowed(), isFalse);
+      expect(await svc.lastScheduledDate(), isNull);
+      await svc.ensureScheduled(
+        client: _digestClient(),
+        isPro: true,
+        enabled: true,
+        now: DateTime(2026, 11, 19, 8, 0),
+      );
+      expect(await svc.lastScheduledDate(), '2026-11-19');
+    });
+  });
+
+  group('DigestScheduleAttempt JSON', () {
+    test('round-trips through JSON', () {
+      final original = DigestScheduleAttempt(
+        attemptedAt: DateTime(2026, 11, 27, 15, 22),
+        outcome: 'failed',
+        exact: false,
+        scheduledFor: DateTime(2026, 11, 28, 7, 0),
+        error: 'Boom',
+      );
+      final decoded = DigestScheduleAttempt.fromJson(
+        jsonEncode(original.toJson()),
+      );
+      expect(decoded, isNotNull);
+      expect(decoded!.attemptedAt, original.attemptedAt);
+      expect(decoded.outcome, 'failed');
+      expect(decoded.exact, isFalse);
+      expect(decoded.scheduledFor, DateTime(2026, 11, 28, 7, 0));
+      expect(decoded.error, 'Boom');
+    });
+
+    test('malformed JSON returns null instead of throwing', () {
+      expect(DigestScheduleAttempt.fromJson('not json'), isNull);
+      expect(DigestScheduleAttempt.fromJson('{"outcome": 1}'), isNull);
+      expect(DigestScheduleAttempt.fromJson('{}'), isNull);
+    });
   });
 
   group('sendTestDigest', () {

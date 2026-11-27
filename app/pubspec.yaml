@@ -1,7 +1,7 @@
 name: redunator
 description: "Redunator — Chicago red-light-camera ticket-risk predictor. Map, hourly risk estimates, route risk, and proximity alerts backed by the Redunator FastAPI backend."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+33
 
 environment:
   sdk: ^3.14.0

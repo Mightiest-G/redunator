@@ -59,6 +59,21 @@ const int kBackgroundAlertIdBase = 2000;
 /// The id is this base + (areaId.hashCode % 100000).
 const int kAreaAlertIdBase = 3000;
 
+/// One pending scheduled notification, as reported by the plugin.
+/// The plugin does not report the scheduled fire time, so the
+/// scheduled-for time comes from the last schedule-attempt record
+/// (see MorningDigestService).
+class PendingNotificationSummary {
+  const PendingNotificationSummary({
+    required this.id,
+    required this.title,
+    required this.body,
+  });
+  final int id;
+  final String? title;
+  final String? body;
+}
+
 /// Gateway seam so services and tests can fake notifications without
 /// touching platform channels.
 abstract class NotificationGateway {
@@ -120,6 +135,12 @@ abstract class NotificationGateway {
   /// True when the app may schedule exact alarms (Android 12+).
   /// The digest falls back to inexact scheduling when false.
   Future<bool> canScheduleExactAlarms();
+
+  /// Scheduled notifications still pending with the plugin, limited
+  /// to the digest ids (daily 1001, weekly 1002). Empty when no
+  /// digest alarm is currently scheduled — the key fact the Settings
+  /// diagnostics needs after a missed 07:00.
+  Future<List<PendingNotificationSummary>> pendingDigestNotifications();
 
   /// Asks Android 12+ for the exact-alarm permission. Best-effort:
   /// a denial just means the digest uses inexact scheduling.
@@ -480,6 +501,29 @@ class LocalNotifications implements NotificationGateway {
       return await android.canScheduleExactNotifications() ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<List<PendingNotificationSummary>> pendingDigestNotifications() async {
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      return pending
+          .where(
+            (r) =>
+                r.id == kDigestNotificationId ||
+                r.id == kWeeklyDigestNotificationId,
+          )
+          .map(
+            (r) => PendingNotificationSummary(
+              id: r.id,
+              title: r.title,
+              body: r.body,
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 

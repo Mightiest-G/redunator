@@ -201,6 +201,10 @@ class _FakeGateway implements NotificationGateway {
   Future<bool> canScheduleExactAlarms() async => false;
 
   @override
+  Future<List<PendingNotificationSummary>> pendingDigestNotifications() async =>
+      [];
+
+  @override
   Future<void> requestExactAlarmsPermission() async {}
 }
 
